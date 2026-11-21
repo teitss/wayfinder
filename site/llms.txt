@@ -1,0 +1,131 @@
+# Wayfinder
+
+> Format guide for AI agents and harnesses that write Wayfinder maps (format 0.3). A map is one JSON model: components, connections, areas, flows, decisions and projects. Wayfinder draws it as a zoomable map that people navigate and adjust.
+
+## How to write a Wayfinder model
+
+Wayfinder draws one JSON model as a zoomable map, with flow overlays, a step-by-step project view and a decision history. This guide describes the format and how to hand your work back. What to document comes from the person you are working with.
+
+### Workflow
+
+1. If a map already exists, ask the person for it: the file from **Save**, or **Model** → **Copy for an agent**. Start from it. Only start from scratch when there is none.
+2. Change only what the request needs. Keep every existing `id`, and keep names and descriptions the person wrote unless they ask you to change them.
+3. Return the complete model, either as a file named `model.json` or as one JSON code block. Don't return a layout. If you were given a `.wayfinder.json` file, the model is its `"model"` field.
+4. Keep the top-level `id` exactly as you received it: it is how Wayfinder recognizes an update to a map the person already has. For a new map, leave `id` out and Wayfinder assigns one.
+5. The person imports or drops your file into Wayfinder (or pastes it into **Model**) and presses **Apply**. If the Model check lists errors, fix them and return the model again.
+
+### Layout is not your job
+
+- Don't invent coordinates. A component without a position is placed automatically next to the components it connects to.
+- Positions in `layout.json` belong to the person. They survive your changes as long as ids stay the same, so never rename an id.
+
+### Top level
+
+- `id`: the map's permanent identity, assigned by Wayfinder (for example "map-3f2a…"). Never change, invent or remove it.
+- `system`: display name of what is mapped; you may rename it. `baseline`: when the map was true, for example "2026-W46".
+- `nodes`, `edges`, `areas`, `flows`, `decisions`: arrays (they can be empty).
+- `project`: required object; its `steps` can be empty.
+
+### Components (nodes)
+
+- `id`: lowercase-kebab, unique and permanent. Positions, flows, decisions and steps all refer to it.
+- `kind`: free text shown as the label. `name`: up to 19 characters. `tech`: up to 26 characters. Longer text gets cut on the map.
+- `desc`: one or two plain sentences. `props`: flat key/value strings, such as endpoints, schema or port.
+- `icon` (optional; defaults to the kind): person, frontend, service, database, worker, external, mail, controller, usecase, domain, port, adapter.
+- `children` (optional): `{ "nodes": [], "edges": [] }` describing the component's insides, one level deep. Write child ids locally ("controller"); everywhere else they are scoped ("api/controller"). People reach them by zooming in.
+
+### Connections (edges)
+
+- `id`, `from`, `to`, `kind`, and a short `label` shown on the line.
+- These kinds count as dependencies in impact questions: uses, calls, reads, writes, reads-writes, implemented-by. Other kinds, such as notifies or deploys-to, are drawn but not followed.
+- `to_port` / `from_port`: when a connection enters or leaves a component that has children, the child where it lands or leaves, for example "api/controller".
+
+### Areas
+
+- `areas`: an array of `{ "id", "name", "kind", "desc", "members": [] }`. An area is a named region of the map: a team, a deployment, a network or a compliance scope.
+- `members` lists top-level component ids, including planned ones. Areas can overlap, and a component can be in several.
+- Areas have no position or size. Wayfinder draws each one around its members, so never add coordinates.
+- Use an area instead of describing a grouping in a component's `desc`: areas can be searched and asked about ("what's inside PCI scope?").
+
+### Flows
+
+- `{ "id", "name", "steps": [ { "edge", "text" } ] }`, in order. Each step names an existing edge, at any level ("api/create-port"), so one flow can continue inside a component.
+- Use flows for runtime paths: a request, a scheduled job, a deployment.
+
+### Decisions
+
+- ADR fields: `id` ("ADR-007"), `title`, `status`, `proposed` and `decided` (dates as YYYY-MM-DD), `context`, `decision`, `consequences`, `nodes` (component ids it affects), and optionally `areas` (area ids it affects), `step` and `superseded_by`.
+- Link a decision to an area when it applies to the whole region rather than to specific components: a team convention, a deployment or compliance rule. It then covers components added to that area later.
+- Lifecycle: **proposed** (only a `proposed` date) → **accepted** or **rejected** (add the `decided` date) → **superseded** (keep both dates; the date it ended is the replacing decision's `decided` date).
+- Keep rejected decisions. For those, `decision` says what was proposed and `consequences` says why it was rejected, so nobody proposes it again without knowing.
+- A proposed decision is a draft: you can edit any of its fields.
+- Once a decision is closed (accepted, rejected or superseded), never edit its body: `title`, `context`, `decision`, `consequences`, dates, `nodes` or `step`. Never delete it either. The only allowed change is accepted → superseded, together with `superseded_by`.
+- To change a closed decision, add a new one that supersedes it, and explain in its `context` what changed. Wayfinder refuses to apply a model that edits a closed decision.
+
+### Projects
+
+- `projects`: an array of `{ "id", "name", "goal", "steps": [] }`. The top-level nodes and edges are the baseline that every project changes.
+- Each step: `id`, `title`, `status` (done, in_progress, planned), and optionally `done` (the date it finished, YYYY-MM-DD; required once done), `depends_on`, `decision`, `ticket` and `changes`.
+- Step ids are unique across all projects. A step runs after the earlier steps of its own project; `depends_on` adds steps it waits for, which can be in another project.
+- `changes` can hold `add_nodes`, `add_edges`, `modify` (`{ "node": id, "set": {...} }` or `{ "edge": id, "set": {...} }`; `props` are merged), `remove_nodes` and `remove_edges`. Use scoped ids for children, such as "api/policy".
+- The current map is the baseline plus every done step of every project, in the order they finished. Planned steps never change it. Every step must leave a valid map, so remove edges no later than the nodes they touch.
+- If a step uses something another project adds, list that step in its `depends_on`. If two projects change the same component, make one depend on the other. Wayfinder warns about both cases.
+
+### What the person can do with your model
+
+- Switch overlays: each flow, Current to Target, and the changes since the baseline.
+- Pick a project and step through it, seeing what each step adds, changes or removes.
+- Zoom into components that have children.
+- Adjust your work by hand: move boxes, and edit names, kinds, technology, descriptions, icons, properties, connection labels and proposed decisions. Treat these values as theirs when you update the map.
+- Search everything, and ask about outage impact, dependencies, and the decisions and steps for any component.
+
+### Before you hand it back
+
+- Every edge end, port, flow step, decision node and step dependency points to an id that exists.
+- Facts come from code, docs or the person. Mark anything you inferred as "unverified" in its `desc`.
+- You changed nothing the request didn't ask for.
+
+### Minimal example
+
+```json
+{
+  "system": "billing",
+  "baseline": "2026-W46",
+  "nodes": [
+    { "id": "app", "kind": "frontend", "name": "Billing App", "tech": "Next.js 15" },
+    { "id": "invoices", "kind": "service", "name": "Invoices API", "tech": "Spring Boot 3" },
+    { "id": "billing-db", "kind": "database", "name": "Billing DB", "tech": "PostgreSQL 16" }
+  ],
+  "edges": [
+    { "id": "app-invoices", "from": "app", "to": "invoices", "kind": "calls", "label": "REST /invoices" },
+    { "id": "invoices-db", "from": "invoices", "to": "billing-db", "kind": "reads-writes", "label": "JDBC" }
+  ],
+  "flows": [
+    { "id": "list", "name": "List invoices", "steps": [
+      { "edge": "app-invoices", "text": "GET /invoices" },
+      { "edge": "invoices-db", "text": "SELECT by customer" } ] }
+  ],
+  "decisions": [
+    { "id": "ADR-001", "title": "Render PDFs in a separate worker", "status": "proposed",
+      "proposed": "2026-11-10", "nodes": ["invoices", "pdf"], "step": "s1",
+      "context": "Rendering is slow and spiky.",
+      "decision": "A worker renders PDFs; the API only queues jobs.",
+      "consequences": "API latency stays flat. One more service to run." }
+  ],
+  "projects": [
+    { "id": "pdf-invoices", "name": "PDF invoices",
+      "goal": "Customers can download any invoice as a PDF.",
+      "steps": [
+        { "id": "s1", "title": "Add PDF worker", "status": "planned", "decision": "ADR-001",
+          "changes": {
+            "add_nodes": [ { "id": "pdf", "kind": "worker", "name": "PDF Worker", "tech": "Gotenberg" } ],
+            "add_edges": [ { "id": "invoices-pdf", "from": "invoices", "to": "pdf", "kind": "calls", "label": "render job" } ] } } ] },
+    { "id": "email-invoices", "name": "Email invoices",
+      "goal": "Each invoice is emailed as a PDF when it's issued.",
+      "steps": [
+        { "id": "e1", "title": "Send PDFs by email", "status": "planned", "depends_on": ["s1"],
+          "changes": {
+            "add_edges": [ { "id": "pdf-mail", "from": "pdf", "to": "invoices", "kind": "notifies", "label": "PDF ready" } ] } } ] }
+  ]
+}
+```

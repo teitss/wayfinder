@@ -1,0 +1,2468 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Wayfinder draws architecture maps, projects and decisions from one text model that agents write and people navigate.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Ccircle cx='15' cy='15' r='13' fill='none' stroke='%232953d1' stroke-width='2.5'/%3E%3Cpath d='M15 5 L19 15 L15 25 L11 15 Z' fill='%232953d1'/%3E%3C/svg%3E">
+<link rel="alternate" type="text/markdown" href="llms.txt" title="Wayfinder format guide for AI agents">
+<style>:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<title>Wayfinder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,750&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: a survey-sheet canvas (the map) beside an inspector rail; the project timeline runs under the map like a route strip. */
+:root{
+  --bg:#e9edf1; --surface:#fbfcfd; --surface-2:#f1f4f7; --ink:#15202b; --muted:#566473; --faint:#8592a0;
+  --line:#d0d8e0; --grid:#c3ccd5; --node:#ffffff; --node-stroke:#6c7a89;
+  --accent:#2953d1; --accent-soft:#e0e7fb; --on-accent:#ffffff;
+  --area-fill:#e3e9f1; --area-line:#a7b4c4; --area-ink:#4a5869;
+  --add:#1c7d47; --add-soft:#dbefe2; --mod:#a3640c; --mod-soft:#f6e9d0; --del:#bd392b; --del-soft:#f5dcd8;
+  --f-display:"Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --r:8px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e141a; --surface:#141c24; --surface-2:#1a242e; --ink:#e2e8ee; --muted:#9aa7b4; --faint:#6d7b89;
+  --line:#26323d; --grid:#2a3743; --node:#18222b; --node-stroke:#71808f;
+  --accent:#7f9cff; --accent-soft:#1d2a4f; --on-accent:#0e141a;
+  --add:#52c486; --add-soft:#14301f; --mod:#e3ab4f; --mod-soft:#382b14; --del:#f07668; --del-soft:#3b1c19;
+  --area-fill:#18212b; --area-line:#3b4a5c; --area-ink:#a3b0bf;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e141a; --surface:#141c24; --surface-2:#1a242e; --ink:#e2e8ee; --muted:#9aa7b4; --faint:#6d7b89;
+  --line:#26323d; --grid:#2a3743; --node:#18222b; --node-stroke:#71808f;
+  --accent:#7f9cff; --accent-soft:#1d2a4f; --on-accent:#0e141a;
+  --add:#52c486; --add-soft:#14301f; --mod:#e3ab4f; --mod-soft:#382b14; --del:#f07668; --del-soft:#3b1c19;
+  --area-fill:#18212b; --area-line:#3b4a5c; --area-ink:#a3b0bf;
+  color-scheme:dark}
+
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--f-body);overflow:hidden}
+*{box-sizing:border-box}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{height:100%;display:flex;flex-direction:column;gap:12px;padding-block:12px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* header */
+.top{display:flex;align-items:center;gap:12px 20px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand svg{flex:none;color:var(--accent)}
+.brand h1{font:750 22px/1 var(--f-display);letter-spacing:-.01em;margin:0}
+.brand .sub{font:12px/1.3 var(--f-mono);color:var(--muted)}
+.modes{display:flex;background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:3px;margin-left:auto}
+.tools{display:flex;gap:8px;flex-wrap:wrap}
+#modes[hidden] + .tools{margin-left:auto}
+.btn.tool{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;font-weight:500}
+.btn.tool svg{color:var(--muted)}
+.btn.tool .count{font:500 11px var(--f-mono);color:var(--surface);background:var(--mod);border-radius:999px;padding:0 6px}
+.btn.tool .count:empty{display:none}
+/* side sheet for the model source and the agent guide */
+.scrim{position:fixed;inset:0;background:rgb(8 14 20 / .34);z-index:20}
+.sheet{position:fixed;top:0;right:0;bottom:0;width:min(820px,100%);background:var(--surface);border-left:1px solid var(--line);box-shadow:-16px 0 48px rgb(0 0 0 / .2);z-index:21;display:flex;flex-direction:column;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);padding-right:env(safe-area-inset-right,0px);animation:sheet-in .2s ease-out}
+@keyframes sheet-in{from{transform:translateX(28px);opacity:0}}
+.sheet-head{display:flex;align-items:center;border-bottom:1px solid var(--line);flex:none}
+.sheet-head .tabs{border-bottom:0;flex:1}
+.sheet-close{border:0;background:none;width:48px;height:44px;font-size:22px;line-height:1;color:var(--muted)}
+.sheet-close:hover{color:var(--ink)}
+.sheet .pane{padding:20px 24px}
+.src-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:14px}
+.src-grid textarea{min-height:min(52vh,520px)}
+@media (max-width:700px){.src-grid{grid-template-columns:minmax(0,1fr)}.src-grid textarea{min-height:260px}}
+@media (prefers-reduced-motion:reduce){.sheet{animation:none}}
+.modes button{border:0;background:none;padding:6px 14px;border-radius:999px;font-weight:500;color:var(--muted)}
+.modes button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0 / .12)}
+
+/* toolbar */
+.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:34px}
+.tlabel{font:500 11px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-right:4px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;font-size:13px;display:inline-flex;align-items:center;gap:6px}
+.chip:hover{border-color:var(--node-stroke)}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.chip .k{font:11px var(--f-mono);opacity:.75}
+.goal{color:var(--muted);font-size:13px;min-width:0;flex:1 1 260px}
+.goal b{color:var(--ink);font-weight:600}
+.stepper{display:flex;align-items:center;gap:6px;margin-left:auto}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:5px 10px;font-size:13px}
+.btn:hover{border-color:var(--node-stroke)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.mono{font-family:var(--f-mono);font-size:12px}
+
+/* work area */
+.work{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:12px}
+.left{display:flex;flex-direction:column;gap:10px;min-height:0;min-width:0}
+.stage{position:relative;flex:1;min-height:300px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);overflow:hidden}
+#map{width:100%;height:100%;display:block;touch-action:none;cursor:grab;user-select:none}
+#map.panning{cursor:grabbing}
+.zoom{position:absolute;top:10px;right:10px;display:flex;flex-direction:column;gap:4px}
+.zoom button{width:32px;height:32px;border:1px solid var(--line);background:var(--surface);border-radius:6px;font:500 15px/1 var(--f-mono)}
+.zoom button.fit{font-size:10px;letter-spacing:.04em}
+.legend{position:absolute;left:10px;bottom:10px;max-width:min(420px,calc(100% - 20px));background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+.legend .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.legend .t{font:500 11px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink)}
+.sw{display:inline-flex;align-items:center;gap:5px}
+.sw i{width:12px;height:12px;border-radius:3px;border:2px solid;display:inline-block}
+.legend ol{margin:0;padding-left:18px}
+.legend li{margin:1px 0}
+
+/* SVG map */
+.grid-dot{fill:var(--grid)}
+.n-box{fill:var(--node);stroke:var(--node-stroke);stroke-width:1.25}
+.n-icon{color:var(--muted)}
+.n-icon *{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.n-kind{font:500 9.5px var(--f-mono);letter-spacing:.08em;fill:var(--faint)}
+.n-name{font:600 14.5px var(--f-body);fill:var(--ink)}
+.n-tech{font:10.5px var(--f-mono);fill:var(--muted)}
+.n-pill rect{stroke:none}
+.n-pill text{font:500 9px var(--f-mono);letter-spacing:.06em}
+.node{cursor:pointer;transition:opacity .2s}
+.node:focus{outline:none}
+.n-box,.e-line,.e-hit{vector-effect:non-scaling-stroke}
+.node:focus-visible > .n-box{stroke:var(--accent);stroke-width:2.5}
+.node.is-added > .n-box{fill:var(--add-soft);stroke:var(--add);stroke-width:2}
+.node.is-added > .n-outer .n-pill rect{fill:var(--add)} .node.is-added > .n-outer .n-pill text{fill:var(--surface)}
+.node.is-modified > .n-box{fill:var(--mod-soft);stroke:var(--mod);stroke-width:2}
+.node.is-modified > .n-outer .n-pill rect{fill:var(--mod)} .node.is-modified > .n-outer .n-pill text{fill:var(--surface)}
+.node.is-removed{opacity:.7} .node.is-removed > .n-box{fill:var(--del-soft);stroke:var(--del);stroke-width:2;stroke-dasharray:6 4}
+.node.is-removed > .n-outer .n-pill rect{fill:var(--del)} .node.is-removed > .n-outer .n-pill text{fill:var(--surface)}
+.node.is-planned > .n-box{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.75;stroke-dasharray:6 4}
+.node.is-planned > .n-outer .n-pill rect{fill:var(--accent)} .node.is-planned > .n-outer .n-pill text{fill:var(--surface)}
+.node.is-ghost{opacity:.42} .node.is-ghost > .n-box{fill:none;stroke-dasharray:5 4}
+.node.is-ghost > .n-outer .n-pill rect{fill:var(--faint)} .node.is-ghost > .n-outer .n-pill text{fill:var(--surface)}
+.node.is-dim,.edge.is-dim{opacity:.3}
+.node.is-faded,.edge.is-faded{opacity:.15}
+.node.is-selected > .n-box{stroke:var(--accent);stroke-width:3}
+/* zoomable interior: --inner goes 0 → 1 as you zoom into a component */
+.node.has-inner.is-dim,.node.has-inner.is-faded{opacity:1}
+.node.has-inner.is-dim > .n-box{opacity:.3} .node.has-inner.is-faded > .n-box{opacity:.15}
+.node.has-inner > .n-outer{opacity:calc(1 - var(--inner,0))}
+.node.has-inner.is-dim > .n-outer{opacity:calc(.3 - .3 * var(--inner,0))}
+.node.has-inner.is-faded > .n-outer{opacity:calc(.15 - .15 * var(--inner,0))}
+.inner{opacity:var(--inner,0);pointer-events:none}
+#map:not(.peek) .inner{display:none}
+#map.deep .inner{pointer-events:auto}
+#map.deep .node.has-inner > .n-outer{pointer-events:none}
+.in-title{font:600 24px var(--f-display);fill:var(--ink)}
+.in-sub{font:12px var(--f-mono);fill:var(--muted);letter-spacing:.05em}
+.inner .e-label text{font-size:12px}
+.n-nest rect{fill:none;stroke:var(--muted);stroke-width:1.3}
+.edge.stub .e-line{stroke-dasharray:7 5}
+.stub-dot{fill:var(--node-stroke)}
+.edge.is-flow .stub-dot{fill:var(--accent)}
+.stub-label{font:12px var(--f-mono);fill:var(--muted)}
+.crumbs{position:absolute;top:10px;left:10px;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:6px 12px;font-size:13px;max-width:calc(100% - 70px)}
+.crumbs .sep{color:var(--faint)}
+.legend li.in{list-style:circle;margin-left:14px}
+/* floating search over the map */
+.finder{position:absolute;top:10px;left:max(10px,calc(50% - 290px));width:min(560px,calc(100% - 62px));display:flex;flex-direction:column;gap:6px;z-index:5}
+.finder-bar{display:flex;align-items:center;gap:10px;background:var(--surface);border:1.5px solid var(--accent);border-radius:8px;padding:6px 10px 6px 12px;box-shadow:0 8px 28px rgb(0 0 0 / .16)}
+.finder-bar svg{flex:none;color:var(--accent)}
+.finder-bar input{flex:1;min-width:0;border:0;background:none;outline:none;padding:5px 0;font-size:15px}
+.finder-bar input::-webkit-search-cancel-button{display:none}
+.fcount{font:12px var(--f-mono);color:var(--faint);white-space:nowrap}
+.kbd{font:11px var(--f-mono);color:var(--muted);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--surface-2);white-space:nowrap}
+.finder-results{background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 28px rgb(0 0 0 / .16);max-height:min(360px,50vh);overflow:auto;padding:8px;display:flex;flex-direction:column;gap:10px}
+.finder-results h3{font:500 11px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:4px 6px 4px}
+.fr{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;border:1px solid transparent;background:none;border-radius:6px;padding:7px 9px}
+.fr:hover{background:var(--surface-2)}
+.fr[aria-selected="true"]{background:var(--accent-soft);border-color:var(--accent)}
+.fr .t{font-weight:500;font-size:13px}
+.fr .s{font:11.5px var(--f-mono);color:var(--muted);overflow-wrap:anywhere}
+.finder-hint{display:flex;gap:6px 14px;flex-wrap:wrap;font-size:12px;color:var(--muted);padding:4px 6px}
+.stage.finding .crumbs{display:none}
+.zoom button.find{display:grid;place-items:center;margin-bottom:6px}
+.zoom button.hist{display:grid;place-items:center}
+.zoom #z-undo{margin-top:6px}
+.zoom button:disabled{opacity:.35;cursor:default}
+.e-line{stroke:var(--node-stroke);stroke-width:1.5;fill:none}
+.e-hit{stroke:transparent;stroke-width:16;pointer-events:stroke}
+.edge{cursor:pointer;transition:opacity .2s}
+.e-label rect{fill:var(--surface);stroke:var(--line)}
+/* areas: named regions drawn around their members */
+.a-box{fill:var(--area-fill);fill-opacity:.55;stroke:var(--area-line);stroke-width:1.25;stroke-dasharray:7 5;vector-effect:non-scaling-stroke}
+.a-tab{cursor:grab}
+.a-tab rect{fill:var(--surface);stroke:var(--area-line);vector-effect:non-scaling-stroke}
+.a-tab .a-kind{font:500 9.5px var(--f-mono);letter-spacing:.08em;fill:var(--faint)}
+.a-tab .a-name{font:600 12px var(--f-body);fill:var(--area-ink)}
+.a-tab:hover rect{stroke:var(--accent)}
+.area.is-selected .a-box{stroke:var(--accent);stroke-dasharray:none;stroke-width:2;fill:var(--accent-soft)}
+.area.is-selected .a-tab rect{stroke:var(--accent);fill:var(--accent-soft)}
+.area.is-selected .a-name{fill:var(--ink)}
+.area.is-faded{opacity:.3}
+#map.dragging-area .a-tab{cursor:grabbing}
+.e-label text{font:10.5px var(--f-mono);fill:var(--muted)}
+.edge.is-flow .e-line{stroke:var(--accent);stroke-width:2.75}
+.edge.is-planned .e-line{stroke:var(--accent);stroke-width:1.75;stroke-dasharray:6 5}
+.edge.is-added .e-line{stroke:var(--add);stroke-width:2.25}
+.edge.is-added .e-label rect{stroke:var(--add)}
+.edge.is-modified .e-line{stroke:var(--mod);stroke-width:2.25}
+.edge.is-modified .e-label rect{stroke:var(--mod);fill:var(--mod-soft)}
+.edge.is-modified .e-label text{fill:var(--ink)}
+.edge.is-removed .e-line{stroke:var(--del);stroke-dasharray:5 4}
+.edge.is-ghost{opacity:.4} .edge.is-ghost .e-line{stroke-dasharray:5 4}
+.edge.is-selected .e-line{stroke:var(--accent);stroke-width:3}
+.badge circle{fill:var(--accent)}
+.badge text{font:600 11px var(--f-mono);fill:var(--on-accent)}
+.mk-plain{fill:var(--node-stroke)} .mk-accent{fill:var(--accent)} .mk-add{fill:var(--add)} .mk-mod{fill:var(--mod)} .mk-del{fill:var(--del)}
+
+/* timeline */
+.timeline{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;flex:none}
+/* decision badge on components: count of decisions in force or proposed; amber = open question */
+.n-adr rect{fill:var(--surface);stroke:var(--node-stroke);stroke-width:1;vector-effect:non-scaling-stroke}
+.n-adr .dia{fill:var(--muted)}
+.n-adr text{font:600 10.5px var(--f-mono);fill:var(--ink)}
+.n-adr.is-open rect{fill:var(--mod-soft);stroke:var(--mod)}
+.n-adr.is-open .dia{fill:var(--mod)}
+.legend .dia{display:inline-block;width:9px;height:9px;transform:rotate(45deg);background:var(--muted);margin:0 3px 0 2px}
+.legend .dia.open{background:var(--mod)}
+.adr-body{display:flex;flex-direction:column;gap:12px}
+.adr-body h4{margin:0 0 3px;font:500 11px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.finder-results .answer{margin:2px 6px}
+.finder-results .answer p,.finder-results .answer li{font-size:13px}
+.tl{flex:0 0 210px;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:4px;position:relative}
+.tl:hover{border-color:var(--node-stroke)}
+.tl[aria-current="step"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.tl .h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.tl .id{font:500 11px var(--f-mono);color:var(--faint)}
+.tl .ti{font-weight:600;font-size:13px;line-height:1.3}
+.tl .de{font:11px var(--f-mono);color:var(--faint)}
+
+.pill{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:1px 8px;font:500 11px/1.6 var(--f-mono);white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.p-done,.p-accepted{color:var(--add);background:var(--add-soft)}
+.p-in_progress{color:var(--mod);background:var(--mod-soft)}
+.p-planned{color:var(--muted);background:var(--surface-2)}
+.p-proposed{color:var(--accent);background:var(--accent-soft)}
+.p-superseded{color:var(--faint);background:var(--surface-2);text-decoration:line-through}
+.p-rejected{color:var(--del);background:var(--del-soft)}
+/* start screen: the engine opens empty; maps are documents */
+.start{flex:1;min-height:0;overflow:auto;display:flex;justify-content:center;padding-block:24px 40px}
+.start-inner{width:min(880px,100%);display:flex;flex-direction:column;gap:28px}
+.start-head h2{font:750 34px/1.1 var(--f-display);letter-spacing:-.015em;margin:0 0 8px;text-wrap:balance}
+.start-head p{margin:0;color:var(--muted);max-width:60ch;font-size:15px}
+.start-actions{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);grid-template-rows:auto auto;gap:12px}
+.start-drop,.start-alt{display:flex;flex-direction:column;gap:6px;text-align:left;border-radius:10px;padding:18px 20px;background:var(--surface);border:1px solid var(--line);cursor:pointer;font-size:13px;color:var(--muted)}
+.start-drop{grid-row:span 2;border:2px dashed var(--accent);background:var(--accent-soft);justify-content:center}
+.start-drop b,.start-alt b{font:600 16px var(--f-display);color:var(--ink)}
+.start-drop:hover,.start-alt:hover{border-color:var(--accent)}
+.start-drop .kbdrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.start h3{font:500 11px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:0 0 10px}
+.maps{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden}
+.maprow{display:flex;align-items:center;gap:12px;padding:10px 12px 10px 16px;border-top:1px solid var(--line);flex-wrap:wrap}
+.maprow:first-child{border-top:0}
+.maprow-open{flex:1 1 260px;min-width:0;border:0;background:none;text-align:left;padding:4px 0;display:flex;flex-direction:column;gap:2px}
+.maprow-open .t{font:600 15px var(--f-body);color:var(--ink)}
+.maprow-open:hover .t{color:var(--accent)}
+.maprow-open .s{font:12px var(--f-mono);color:var(--muted)}
+.maprow .confirm{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--del)}
+.btn.danger{border-color:var(--del);color:var(--del)}
+.p-unsaved{color:var(--mod);background:var(--mod-soft)}
+.p-saved{color:var(--add);background:var(--add-soft)}
+.p-nofile{color:var(--muted);background:var(--surface-2)}
+.start-note{font-size:12.5px;color:var(--muted);max-width:70ch;margin:0}
+.empty-maps{padding:22px 18px;color:var(--muted);font-size:13px}
+.btn.tool.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.tool.primary svg{color:var(--on-accent)}
+.btn.tool .dirty-dot{display:none;width:7px;height:7px;border-radius:50%;background:var(--mod);box-shadow:0 0 0 2px var(--accent)}
+.btn.tool.is-dirty .dirty-dot{display:inline-block}
+.sub .st-unsaved{color:var(--mod)} .sub .st-saved{color:var(--add)} .sub .st-warn{color:var(--del)}
+@media (max-width:700px){.start-actions{grid-template-columns:minmax(0,1fr)}.start-drop{grid-row:auto}.start-head h2{font-size:28px}}
+.dropzone{position:fixed;inset:0;z-index:40;display:grid;place-items:center;padding:24px;background:rgb(8 14 20 / .4);pointer-events:none}
+.dropcard{display:flex;flex-direction:column;gap:6px;align-items:center;text-align:center;max-width:440px;padding:28px 32px;border:2px dashed var(--accent);border-radius:12px;background:var(--surface);color:var(--muted);font-size:13px}
+.dropcard b{font:600 18px var(--f-display);color:var(--ink)}
+label.btn{cursor:pointer;display:inline-flex;align-items:center}
+/* decision lifecycle */
+.life{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.life li{position:relative;padding:0 0 14px 24px;display:flex;flex-direction:column;gap:1px}
+.life li:last-child{padding-bottom:0}
+.life li::before{content:"";position:absolute;left:5px;top:14px;bottom:0;width:2px;background:var(--line)}
+.life li:last-child::before{display:none}
+.life .dot{position:absolute;left:0;top:3px;width:12px;height:12px;border-radius:50%;background:var(--surface);border:2px solid var(--node-stroke)}
+.life li.prop .dot{background:var(--accent);border-color:var(--accent)}
+.life li.ok .dot{background:var(--add);border-color:var(--add)}
+.life li.no .dot{background:var(--del);border-color:var(--del)}
+.life li.sup .dot{background:var(--faint);border-color:var(--faint)}
+.life li.pending .dot{border-style:dashed;border-color:var(--mod)}
+.life .lab{font-weight:600;font-size:13px}
+.life .dt{font:12px var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* panel */
+.panel{display:flex;flex-direction:column;min-height:0;min-width:0;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+.tabs{display:flex;border-bottom:1px solid var(--line);overflow-x:auto;flex:none}
+.guide p,.guide li{font-size:13.5px;line-height:1.55}
+.guide ul,.guide ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;max-width:62ch}
+.guide code{font:12px var(--f-mono);background:var(--surface-2);border-radius:4px;padding:1px 4px;overflow-wrap:anywhere}
+.guide pre{margin:0;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:10px 12px;font:11.5px/1.5 var(--f-mono);overflow-x:auto;white-space:pre;flex:none}
+.guide h3{margin:6px 0 0}
+.guide .lede{color:var(--muted)}
+.tabs button{border:0;background:none;padding:11px 11px;font-size:13px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tabs .count{font:11px var(--f-mono);color:var(--faint);margin-left:4px}
+.pane{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.pane h2{font:600 19px/1.2 var(--f-display);margin:0;text-wrap:balance}
+/* inline editing */
+.eyebrow .edit-btn{margin-left:auto;font:500 12px var(--f-body);padding:3px 12px;color:var(--ink)}
+.edit-form{display:flex;flex-direction:column;gap:14px}
+.edit-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.edit-head .btn{flex:none}
+.ef{display:flex;flex-direction:column;gap:5px;min-width:0}
+.ef > span{font:500 11px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.ef small{font-size:11.5px;color:var(--faint)}
+.ef input.field,.ef select.field{font-size:13.5px;min-width:0}
+.ef textarea.field{font:13px/1.5 var(--f-body);white-space:pre-wrap;min-height:0;resize:vertical}
+.ef-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.icon-pick{display:flex;align-items:center;gap:8px;min-width:0}
+.icon-pick svg{flex:none}
+.icon-pick select{flex:1}
+.props-ed{display:flex;flex-direction:column;gap:6px}
+.prow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr) auto;gap:6px}
+.prow .field{font:12.5px var(--f-mono)}
+.btn.icon{width:32px;padding:0;font-size:16px;line-height:1}
+.edit-msg{font-size:12px;margin:0}
+.members{border:1px solid var(--line);border-radius:6px;padding:8px 12px 10px;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 12px}
+.members legend{font:500 11px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--faint);padding:0 4px}
+.mem{display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer}
+.mem input{accent-color:var(--accent);width:15px;height:15px}
+.pane h3{font:500 11px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:0 0 8px}
+.pane p{margin:0;max-width:62ch}
+.muted{color:var(--muted)}
+.eyebrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font:11px var(--f-mono);color:var(--faint);margin-bottom:6px}
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;margin:0}
+.kv dt{font:12px var(--f-mono);color:var(--faint)}
+.kv dd{margin:0;font:12.5px/1.45 var(--f-mono);overflow-wrap:anywhere}
+.kv dd.chg{color:var(--mod)}
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.item{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:var(--surface);text-align:left;width:100%}
+button.item:hover{border-color:var(--node-stroke)}
+.item .main{min-width:0;display:flex;flex-direction:column;gap:2px}
+.item .t{font-weight:500;font-size:13px}
+.item .s{font:11.5px var(--f-mono);color:var(--muted);overflow-wrap:anywhere}
+.link{border:0;background:none;padding:0;color:var(--accent);font:inherit;text-decoration:underline;text-underline-offset:2px}
+.nchip{border:1px solid var(--line);background:var(--surface-2);border-radius:5px;padding:1px 7px;font:12px var(--f-mono);color:var(--ink)}
+.nchip:hover{border-color:var(--accent);color:var(--accent)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.change{font:12px/1.5 var(--f-mono);display:flex;gap:8px;align-items:baseline}
+.change .op{width:14px;flex:none;font-weight:600;text-align:center}
+.op-add{color:var(--add)} .op-mod{color:var(--mod)} .op-del{color:var(--del)}
+.note{background:var(--surface-2);border-radius:6px;padding:10px 12px;font-size:13px;color:var(--muted)}
+.field{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:8px 10px}
+.field:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent)}
+textarea.field{font:12px/1.5 var(--f-mono);resize:vertical;min-height:260px;white-space:pre;tab-size:2}
+mark{background:var(--mod-soft);color:inherit;border-radius:2px;padding:0 1px}
+.grp{display:flex;flex-direction:column;gap:6px}
+details.adr{border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+details.adr summary{list-style:none;cursor:pointer;padding:10px 12px;display:flex;flex-direction:column;gap:4px}
+details.adr summary::-webkit-details-marker{display:none}
+details.adr .body{padding:0 12px 12px;display:flex;flex-direction:column;gap:10px;font-size:13px}
+details.adr .body h4{margin:0 0 2px;font:500 11px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.issue{font-size:13px;display:flex;gap:8px}
+.issue .lv{font:500 11px var(--f-mono);flex:none;padding-top:2px}
+.lv-error{color:var(--del)} .lv-warn{color:var(--mod)} .lv-ok{color:var(--add)}
+.answer{border-left:3px solid var(--accent);padding:4px 0 4px 12px;display:flex;flex-direction:column;gap:8px}
+.answer .q{font:11.5px var(--f-mono);color:var(--faint)}
+.answer ul{margin:0;padding-left:18px}
+.row-btns{display:flex;gap:8px;flex-wrap:wrap}
+.sugg{border:1px dashed var(--line);background:none;border-radius:6px;padding:6px 10px;font-size:12.5px;text-align:left;color:var(--muted)}
+.sugg:hover{border-color:var(--accent);color:var(--accent)}
+
+@media (max-width:860px){
+  html,body{height:auto;overflow:auto}
+  .app{height:auto}
+  .work{grid-template-columns:minmax(0,1fr)}
+  .stage{flex:none;height:440px}
+  .panel{min-height:440px}
+  .modes{margin-left:0}
+}
+@media (prefers-reduced-motion:reduce){.node,.edge{transition:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="13" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15 5 L19 15 L15 25 L11 15 Z" fill="currentColor" opacity=".9"/><circle cx="15" cy="15" r="2" fill="var(--surface)"/></svg>
+      <div>
+        <h1>Wayfinder</h1>
+        <div class="sub" id="subline">No map open</div>
+      </div>
+    </div>
+    <div class="modes" id="modes" role="group" aria-label="View">
+      <button id="m-arch" aria-pressed="true">Architecture</button>
+      <button id="m-proj" aria-pressed="false">Project</button>
+    </div>
+    <div class="tools">
+      <button class="btn tool" id="open-maps" title="Open another map"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/></svg>Maps</button>
+      <button class="btn tool" data-sheet="model" id="open-model"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4c-2 0-3 1-3 3v2.5c0 1-.8 2.5-2 2.5 1.2 0 2 1.5 2 2.5V17c0 2 1 3 3 3M16 4c2 0 3 1 3 3v2.5c0 1 .8 2.5 2 2.5-1.2 0-2 1.5-2 2.5V17c0 2-1 3-3 3"/></svg>Model<span class="count" id="model-count"></span></button>
+      <button class="btn tool" data-sheet="agents" id="open-agents"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 3v4M9 12h.01M15 12h.01M9.5 16h5"/></svg>For agents</button>
+      <button class="btn tool primary" id="save-file" title="Save to a file (Ctrl+S)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Save<span class="dirty-dot" aria-hidden="true"></span></button>
+    </div>
+  </header>
+
+  <section class="start" id="start" hidden aria-label="Open a map"></section>
+
+  <div class="toolbar" id="toolbar"></div>
+
+  <main class="work" id="work">
+    <div class="left">
+      <section class="stage" aria-label="Map">
+        <svg id="map" viewBox="0 0 1200 700" aria-label="Architecture map">
+          <defs>
+            <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse"><circle class="grid-dot" cx="1.5" cy="1.5" r="1.3"/></pattern>
+            <marker id="m-plain" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="mk-plain" d="M0 0L10 5L0 10z"/></marker>
+            <marker id="m-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="mk-accent" d="M0 0L10 5L0 10z"/></marker>
+            <marker id="m-add" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="mk-add" d="M0 0L10 5L0 10z"/></marker>
+            <marker id="m-mod" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="mk-mod" d="M0 0L10 5L0 10z"/></marker>
+            <marker id="m-del" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="mk-del" d="M0 0L10 5L0 10z"/></marker>
+          </defs>
+          <rect x="-6000" y="-6000" width="14000" height="14000" fill="url(#dots)"/>
+          <g id="layer"></g>
+        </svg>
+        <div class="zoom">
+          <button id="z-find" class="find" aria-label="Search the model (Ctrl+F)" title="Search (Ctrl+F)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg></button>
+          <button id="z-in" aria-label="Zoom in">+</button>
+          <button id="z-out" aria-label="Zoom out">−</button>
+          <button id="z-fit" class="fit" aria-label="Fit map to screen">FIT</button>
+          <button id="z-undo" class="hist" aria-label="Undo" disabled><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+          <button id="z-redo" class="hist" aria-label="Redo" disabled><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
+        </div>
+        <div class="crumbs" id="crumbs" hidden></div>
+        <div class="finder" id="finder" role="dialog" aria-label="Search the model" hidden>
+          <div class="finder-bar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>
+            <input id="q" type="search" placeholder="Search, or type ? to ask a question" autocomplete="off" spellcheck="false" aria-controls="finder-results">
+            <span class="fcount" id="fcount"></span>
+            <span class="kbd">Esc</span>
+          </div>
+          <div class="finder-results" id="finder-results" role="listbox"></div>
+        </div>
+        <div class="legend" id="legend"></div>
+      </section>
+      <div class="timeline" id="timeline" hidden></div>
+    </div>
+
+    <aside class="panel">
+      <div class="pane" id="pane" aria-live="polite"></div>
+    </aside>
+  </main>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<div class="dropzone" id="dropzone" hidden><div class="dropcard"><b>Drop to load into Model</b><span>model.json, layout.json, or an agent's reply (.md) with JSON blocks. Nothing changes until you press Apply.</span></div></div>
+<aside class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Model and agent guide">
+  <div class="sheet-head">
+    <div class="tabs" role="tablist" id="sheet-tabs"></div>
+    <button class="sheet-close" id="sheet-close" aria-label="Close">×</button>
+  </div>
+  <div class="pane" id="sheet-pane" hidden></div>
+      <!-- Agent guide: plain static HTML so tools that read the page without running JavaScript still get it. -->
+      <article class="pane guide" id="guide" aria-label="Guide for AI agents">
+        <div class="eyebrow">FOR AI AGENTS AND HARNESSES · WAYFINDER FORMAT 0.3</div>
+        <h2>How to write a Wayfinder model</h2>
+        <p class="lede">Wayfinder draws one JSON model as a zoomable map, with flow overlays, a step-by-step project view and a decision history. This guide describes the format and how to hand your work back. What to document comes from the person you are working with.</p>
+        <div class="row-btns" data-no-md><button class="btn primary" id="copy-guide">Copy guide as Markdown</button><span class="muted" id="copy-guide-status" aria-live="polite"></span></div>
+        <textarea id="guide-fallback" class="field" readonly hidden data-no-md aria-label="Guide as Markdown"></textarea>
+
+        <h3>Workflow</h3>
+        <ol>
+          <li>If a map already exists, ask the person for it: the file from <b>Save</b>, or <b>Model</b> → <b>Copy for an agent</b>. Start from it. Only start from scratch when there is none.</li>
+          <li>Change only what the request needs. Keep every existing <code>id</code>, and keep names and descriptions the person wrote unless they ask you to change them.</li>
+          <li>Return the complete model, either as a file named <code>model.json</code> or as one JSON code block. Don't return a layout. If you were given a <code>.wayfinder.json</code> file, the model is its <code>"model"</code> field.</li>
+          <li>Keep the top-level <code>id</code> exactly as you received it: it is how Wayfinder recognizes an update to a map the person already has. For a new map, leave <code>id</code> out and Wayfinder assigns one.</li>
+          <li>The person imports or drops your file into Wayfinder (or pastes it into <b>Model</b>) and presses <b>Apply</b>. If the Model check lists errors, fix them and return the model again.</li>
+        </ol>
+
+        <h3>Layout is not your job</h3>
+        <ul>
+          <li>Don't invent coordinates. A component without a position is placed automatically next to the components it connects to.</li>
+          <li>Positions in <code>layout.json</code> belong to the person. They survive your changes as long as ids stay the same, so never rename an id.</li>
+        </ul>
+
+        <h3>Top level</h3>
+        <ul>
+          <li><code>id</code>: the map's permanent identity, assigned by Wayfinder (for example "map-3f2a…"). Never change, invent or remove it.</li>
+          <li><code>system</code>: display name of what is mapped; you may rename it. <code>baseline</code>: when the map was true, for example "2026-W46".</li>
+          <li><code>nodes</code>, <code>edges</code>, <code>areas</code>, <code>flows</code>, <code>decisions</code>: arrays (they can be empty).</li>
+          <li><code>project</code>: required object; its <code>steps</code> can be empty.</li>
+        </ul>
+
+        <h3>Components (nodes)</h3>
+        <ul>
+          <li><code>id</code>: lowercase-kebab, unique and permanent. Positions, flows, decisions and steps all refer to it.</li>
+          <li><code>kind</code>: free text shown as the label. <code>name</code>: up to 19 characters. <code>tech</code>: up to 26 characters. Longer text gets cut on the map.</li>
+          <li><code>desc</code>: one or two plain sentences. <code>props</code>: flat key/value strings, such as endpoints, schema or port.</li>
+          <li><code>icon</code> (optional; defaults to the kind): person, frontend, service, database, worker, external, mail, controller, usecase, domain, port, adapter.</li>
+          <li><code>children</code> (optional): <code>{ "nodes": [], "edges": [] }</code> describing the component's insides, one level deep. Write child ids locally ("controller"); everywhere else they are scoped ("api/controller"). People reach them by zooming in.</li>
+        </ul>
+
+        <h3>Connections (edges)</h3>
+        <ul>
+          <li><code>id</code>, <code>from</code>, <code>to</code>, <code>kind</code>, and a short <code>label</code> shown on the line.</li>
+          <li>These kinds count as dependencies in impact questions: uses, calls, reads, writes, reads-writes, implemented-by. Other kinds, such as notifies or deploys-to, are drawn but not followed.</li>
+          <li><code>to_port</code> / <code>from_port</code>: when a connection enters or leaves a component that has children, the child where it lands or leaves, for example "api/controller".</li>
+        </ul>
+
+        <h3>Areas</h3>
+        <ul>
+          <li><code>areas</code>: an array of <code>{ "id", "name", "kind", "desc", "members": [] }</code>. An area is a named region of the map: a team, a deployment, a network or a compliance scope.</li>
+          <li><code>members</code> lists top-level component ids, including planned ones. Areas can overlap, and a component can be in several.</li>
+          <li>Areas have no position or size. Wayfinder draws each one around its members, so never add coordinates.</li>
+          <li>Use an area instead of describing a grouping in a component's <code>desc</code>: areas can be searched and asked about ("what's inside PCI scope?").</li>
+        </ul>
+
+        <h3>Flows</h3>
+        <ul>
+          <li><code>{ "id", "name", "steps": [ { "edge", "text" } ] }</code>, in order. Each step names an existing edge, at any level ("api/create-port"), so one flow can continue inside a component.</li>
+          <li>Use flows for runtime paths: a request, a scheduled job, a deployment.</li>
+        </ul>
+
+        <h3>Decisions</h3>
+        <ul>
+          <li>ADR fields: <code>id</code> ("ADR-007"), <code>title</code>, <code>status</code>, <code>proposed</code> and <code>decided</code> (dates as YYYY-MM-DD), <code>context</code>, <code>decision</code>, <code>consequences</code>, <code>nodes</code> (component ids it affects), and optionally <code>areas</code> (area ids it affects), <code>step</code> and <code>superseded_by</code>.</li>
+          <li>Link a decision to an area when it applies to the whole region rather than to specific components: a team convention, a deployment or compliance rule. It then covers components added to that area later.</li>
+          <li>Lifecycle: <b>proposed</b> (only a <code>proposed</code> date) → <b>accepted</b> or <b>rejected</b> (add the <code>decided</code> date) → <b>superseded</b> (keep both dates; the date it ended is the replacing decision's <code>decided</code> date).</li>
+          <li>Keep rejected decisions. For those, <code>decision</code> says what was proposed and <code>consequences</code> says why it was rejected, so nobody proposes it again without knowing.</li>
+          <li>A proposed decision is a draft: you can edit any of its fields.</li>
+          <li>Once a decision is closed (accepted, rejected or superseded), never edit its body: <code>title</code>, <code>context</code>, <code>decision</code>, <code>consequences</code>, dates, <code>nodes</code> or <code>step</code>. Never delete it either. The only allowed change is accepted → superseded, together with <code>superseded_by</code>.</li>
+          <li>To change a closed decision, add a new one that supersedes it, and explain in its <code>context</code> what changed. Wayfinder refuses to apply a model that edits a closed decision.</li>
+        </ul>
+
+        <h3>Projects</h3>
+        <ul>
+          <li><code>projects</code>: an array of <code>{ "id", "name", "goal", "steps": [] }</code>. The top-level nodes and edges are the baseline that every project changes.</li>
+          <li>Each step: <code>id</code>, <code>title</code>, <code>status</code> (done, in_progress, planned), and optionally <code>done</code> (the date it finished, YYYY-MM-DD; required once done), <code>depends_on</code>, <code>decision</code>, <code>ticket</code> and <code>changes</code>.</li>
+          <li>Step ids are unique across all projects. A step runs after the earlier steps of its own project; <code>depends_on</code> adds steps it waits for, which can be in another project.</li>
+          <li><code>changes</code> can hold <code>add_nodes</code>, <code>add_edges</code>, <code>modify</code> (<code>{ "node": id, "set": {...} }</code> or <code>{ "edge": id, "set": {...} }</code>; <code>props</code> are merged), <code>remove_nodes</code> and <code>remove_edges</code>. Use scoped ids for children, such as "api/policy".</li>
+          <li>The current map is the baseline plus every done step of every project, in the order they finished. Planned steps never change it. Every step must leave a valid map, so remove edges no later than the nodes they touch.</li>
+          <li>If a step uses something another project adds, list that step in its <code>depends_on</code>. If two projects change the same component, make one depend on the other. Wayfinder warns about both cases.</li>
+        </ul>
+
+        <h3>What the person can do with your model</h3>
+        <ul>
+          <li>Switch overlays: each flow, Current to Target, and the changes since the baseline.</li>
+          <li>Pick a project and step through it, seeing what each step adds, changes or removes.</li>
+          <li>Zoom into components that have children.</li>
+          <li>Adjust your work by hand: move boxes, and edit names, kinds, technology, descriptions, icons, properties, connection labels and proposed decisions. Treat these values as theirs when you update the map.</li>
+          <li>Search everything, and ask about outage impact, dependencies, and the decisions and steps for any component.</li>
+        </ul>
+
+        <h3>Before you hand it back</h3>
+        <ul>
+          <li>Every edge end, port, flow step, decision node and step dependency points to an id that exists.</li>
+          <li>Facts come from code, docs or the person. Mark anything you inferred as "unverified" in its <code>desc</code>.</li>
+          <li>You changed nothing the request didn't ask for.</li>
+        </ul>
+
+        <h3>Minimal example</h3>
+<pre>{
+  "system": "billing",
+  "baseline": "2026-W46",
+  "nodes": [
+    { "id": "app", "kind": "frontend", "name": "Billing App", "tech": "Next.js 15" },
+    { "id": "invoices", "kind": "service", "name": "Invoices API", "tech": "Spring Boot 3" },
+    { "id": "billing-db", "kind": "database", "name": "Billing DB", "tech": "PostgreSQL 16" }
+  ],
+  "edges": [
+    { "id": "app-invoices", "from": "app", "to": "invoices", "kind": "calls", "label": "REST /invoices" },
+    { "id": "invoices-db", "from": "invoices", "to": "billing-db", "kind": "reads-writes", "label": "JDBC" }
+  ],
+  "flows": [
+    { "id": "list", "name": "List invoices", "steps": [
+      { "edge": "app-invoices", "text": "GET /invoices" },
+      { "edge": "invoices-db", "text": "SELECT by customer" } ] }
+  ],
+  "decisions": [
+    { "id": "ADR-001", "title": "Render PDFs in a separate worker", "status": "proposed",
+      "proposed": "2026-11-10", "nodes": ["invoices", "pdf"], "step": "s1",
+      "context": "Rendering is slow and spiky.",
+      "decision": "A worker renders PDFs; the API only queues jobs.",
+      "consequences": "API latency stays flat. One more service to run." }
+  ],
+  "projects": [
+    { "id": "pdf-invoices", "name": "PDF invoices",
+      "goal": "Customers can download any invoice as a PDF.",
+      "steps": [
+        { "id": "s1", "title": "Add PDF worker", "status": "planned", "decision": "ADR-001",
+          "changes": {
+            "add_nodes": [ { "id": "pdf", "kind": "worker", "name": "PDF Worker", "tech": "Gotenberg" } ],
+            "add_edges": [ { "id": "invoices-pdf", "from": "invoices", "to": "pdf", "kind": "calls", "label": "render job" } ] } } ] },
+    { "id": "email-invoices", "name": "Email invoices",
+      "goal": "Each invoice is emailed as a PDF when it's issued.",
+      "steps": [
+        { "id": "e1", "title": "Send PDFs by email", "status": "planned", "depends_on": ["s1"],
+          "changes": {
+            "add_edges": [ { "id": "pdf-mail", "from": "pdf", "to": "invoices", "kind": "notifies", "label": "PDF ready" } ] } } ] }
+  ]
+}</pre>
+      </article>
+</aside>
+
+<script>
+(() => {
+const W = 176, H = 78;
+const IW = 960, KIN = W / IW, IH = H / KIN;   // a component's interior is a 960-wide map scaled into its box
+
+/* ---------- Sample model: the single source of truth ---------- */
+const SAMPLE_MODEL = {
+  system: "todo-app",
+  baseline: "2026-W44",
+  nodes: [
+    { id: "user", kind: "person", name: "Task owner", tech: "Any modern browser",
+      desc: "Someone keeping a personal to-do list." },
+    { id: "web", kind: "frontend", name: "Todo Web", tech: "React 18 · Vite",
+      desc: "Single-page app. Lists tasks, adds new ones, marks them done.",
+      props: { route: "/", features: "list, add, complete" } },
+    { id: "api", kind: "service", name: "Todo API", tech: "Spring Boot 3 · Java 21",
+      desc: "REST API that owns task rules and validation. Built as ports and adapters (hexagonal architecture).",
+      props: { endpoints: "GET, POST, PATCH /tasks", port: "8080" },
+      children: {
+        nodes: [
+          { id: "controller", kind: "adapter-in", icon: "controller", name: "TaskController", tech: "@RestController /tasks",
+            desc: "Turns HTTP requests into commands and results into JSON. Holds no business rules." },
+          { id: "create", kind: "use case", icon: "usecase", name: "CreateTask", tech: "@Transactional",
+            desc: "Builds a new Task from the command and stores it." },
+          { id: "task", kind: "domain", icon: "domain", name: "Task", tech: "aggregate",
+            desc: "Holds the rules: a title is required and at most 200 characters.",
+            props: { fields: "id, title, done, createdAt" } },
+          { id: "port", kind: "port-out", icon: "port", name: "TaskRepository", tech: "interface",
+            desc: "What the use cases need from storage, with no JPA or SQL types." },
+          { id: "jpa", kind: "adapter-out", icon: "adapter", name: "JpaTaskRepository", tech: "Spring Data JPA",
+            desc: "Implements TaskRepository on PostgreSQL." }
+        ],
+        edges: [
+          { id: "controller-create", from: "controller", to: "create", kind: "calls", label: "execute()" },
+          { id: "create-task", from: "create", to: "task", kind: "uses", label: "create()" },
+          { id: "create-port", from: "create", to: "port", kind: "calls", label: "save()" },
+          { id: "port-jpa", from: "port", to: "jpa", kind: "implemented-by", label: "impl" }
+        ]
+      } },
+    { id: "db", kind: "database", name: "Todo DB", tech: "PostgreSQL 16",
+      desc: "Stores tasks. One schema, migrated with Flyway.",
+      props: { schema: "tasks(id, title, done, created_at)", migrations: "V1, V2" } }
+  ],
+  edges: [
+    { id: "user-web", from: "user", to: "web", kind: "uses", label: "browser" },
+    { id: "web-api", from: "web", to: "api", kind: "calls", label: "REST /tasks", to_port: "api/controller" },
+    { id: "api-db", from: "api", to: "db", kind: "reads-writes", label: "JDBC", from_port: "api/jpa" }
+  ],
+  flows: [
+    { id: "create-task", name: "Create a task", steps: [
+      { edge: "user-web", text: "Types a title and presses Add" },
+      { edge: "web-api", text: "POST /tasks { title }" },
+      { edge: "api/controller-create", text: "Controller maps JSON to a CreateTask command" },
+      { edge: "api/create-task", text: "Task.create(title) checks the rules" },
+      { edge: "api/create-port", text: "Use case calls repository.save(task)" },
+      { edge: "api/port-jpa", text: "JPA adapter maps Task to a row" },
+      { edge: "api-db", text: "INSERT INTO tasks" } ] },
+    { id: "complete-task", name: "Complete a task", steps: [
+      { edge: "user-web", text: "Ticks the checkbox" },
+      { edge: "web-api", text: "PATCH /tasks/{id} { done: true }" },
+      { edge: "api-db", text: "UPDATE tasks SET done = true" } ] }
+  ],
+  areas: [
+    { id: "aws", kind: "deployment", name: "AWS sa-east-1", members: ["api", "db", "reminder", "cache"],
+      desc: "Runs on EKS with RDS and ElastiCache in São Paulo." },
+    { id: "tasks-team", kind: "team", name: "Tasks team", members: ["web", "api", "db"],
+      desc: "Owns the task experience end to end, from the web app to the database." }
+  ],
+  decisions: [
+    { id: "ADR-001", title: "Keep tasks in browser localStorage", status: "superseded",
+      proposed: "2026-08-31", decided: "2026-09-02", superseded_by: "ADR-002", nodes: ["web"],
+      context: "First prototype, single user, no server.",
+      decision: "Store the task list in localStorage.",
+      consequences: "Tasks don't sync across devices and are lost when site data is cleared." },
+    { id: "ADR-002", title: "Use PostgreSQL behind a REST API", status: "accepted",
+      proposed: "2026-10-06", decided: "2026-10-12", nodes: ["api", "db"],
+      context: "Users want their list on more than one device.",
+      decision: "Move storage to PostgreSQL, accessed only through the Todo API.",
+      consequences: "Needs hosting and migrations. Business rules move from the UI to the API." },
+    { id: "ADR-005", title: "Ports and adapters inside the Todo API", status: "accepted",
+      proposed: "2026-10-13", decided: "2026-10-14", nodes: ["api", "api/port", "api/jpa", "api/task"],
+      context: "We want to test task rules without a database and keep JPA out of the domain.",
+      decision: "Use cases depend on the TaskRepository port. JPA lives only in an adapter that implements it.",
+      consequences: "Domain tests run in milliseconds. Each storage change touches one adapter. Slightly more classes." },
+    { id: "ADR-006", title: "Store deadlines as TIMESTAMPTZ", status: "rejected",
+      proposed: "2026-10-29", decided: "2026-11-02", nodes: ["db"], step: "s1",
+      context: "First idea for TODO-41: store the exact instant a task is due.",
+      decision: "Column due_at TIMESTAMP WITH TIME ZONE, converted to the user's timezone on display.",
+      consequences: "Rejected in favour of ADR-003. Users pick a day, not an instant, and a timestamp can move the deadline to another day across timezones." },
+    { id: "ADR-007", title: "Keep task data in Brazil", status: "accepted",
+      proposed: "2026-09-15", decided: "2026-09-18", nodes: [], areas: ["aws"],
+      context: "Our customers are Brazilian companies, and their contracts and LGPD reviews ask for data to stay in Brazil.",
+      decision: "Every service and data store that holds task data runs in AWS sa-east-1.",
+      consequences: "No multi-region failover for now. New data stores, such as the planned cache, must be created in sa-east-1." },
+    { id: "ADR-003", title: "Store deadlines as DATE, not TIMESTAMP", status: "accepted",
+      proposed: "2026-10-31", decided: "2026-11-02", nodes: ["db", "api"], step: "s1",
+      context: "A deadline means a calendar day for the user, not an instant in time.",
+      decision: "Column due_date DATE, nullable. The API exchanges ISO dates (yyyy-MM-dd).",
+      consequences: "No timezone conversion on storage. 'Due tomorrow' is computed in the user's timezone." },
+    { id: "ADR-004", title: "Send reminders from a separate worker", status: "proposed",
+      proposed: "2026-11-05", nodes: ["reminder", "api"], step: "s4",
+      context: "Reminder emails run on a schedule and can be slow or retried.",
+      decision: "A scheduled worker reads due tasks directly and calls the email provider.",
+      consequences: "API latency is unaffected. The worker needs read access to the database." }
+  ],
+  projects: [ {
+    id: "task-deadlines", name: "Task deadlines",
+    goal: "Every task can have a deadline, and its owner gets an email the day before.",
+    steps: [
+      { id: "s1", title: "Add due_date column", status: "done", done: "2026-11-04",
+        decision: "ADR-003", ticket: "TODO-41",
+        changes: { modify: [ { node: "db", set: { props: { schema: "tasks(id, title, done, created_at, due_date)", migrations: "V1, V2, V3__add_due_date" } } } ] } },
+      { id: "s2", title: "API accepts and returns deadlines", status: "in_progress", depends_on: ["s1"], ticket: "TODO-42",
+        changes: {
+          add_nodes: [
+            { id: "api/policy", kind: "domain", icon: "domain", name: "DueDatePolicy", tech: "domain service",
+              desc: "Rejects deadlines in the past, using the owner's timezone." } ],
+          add_edges: [
+            { id: "api/task-policy", from: "api/task", to: "api/policy", kind: "uses", label: "check()" } ],
+          modify: [
+            { node: "api", set: { props: { endpoints: "GET, POST, PATCH /tasks (+ dueDate)", validation: "dueDate >= today" } } },
+            { node: "api/task", set: { props: { fields: "id, title, done, createdAt, dueDate" } } },
+            { edge: "web-api", set: { label: "REST · dueDate" } } ] } },
+      { id: "s3", title: "Date picker and overdue badge", status: "planned", depends_on: ["s2"], ticket: "TODO-43",
+        changes: { modify: [ { node: "web", set: { props: { features: "list, add, complete, date picker, overdue badge" } } } ] } },
+      { id: "s4", title: "Reminder worker emails owners", status: "planned", depends_on: ["s2"],
+        decision: "ADR-004", ticket: "TODO-44",
+        changes: {
+          add_nodes: [
+            { id: "reminder", kind: "worker", name: "Reminder Worker", tech: "Spring Batch · daily 08:00",
+              desc: "Finds tasks due tomorrow and emails their owners." },
+            { id: "mail", kind: "external", icon: "mail", name: "Email Provider", tech: "Amazon SES",
+              desc: "Delivers transactional email." } ],
+          add_edges: [
+            { id: "reminder-db", from: "reminder", to: "db", kind: "reads", label: "due tomorrow" },
+            { id: "reminder-mail", from: "reminder", to: "mail", kind: "calls", label: "SendEmail" },
+            { id: "mail-user", from: "mail", to: "user", kind: "notifies", label: "reminder email" } ],
+          modify: [ { node: "db", set: { props: { indexes: "idx_tasks_due_date" } } } ] } }
+    ]
+  }, {
+    id: "list-cache", name: "Faster task lists",
+    goal: "An owner's task list loads in under 100 ms, even with thousands of tasks.",
+    steps: [
+      { id: "c1", title: "Add Redis for cached lists", status: "planned", ticket: "TODO-51",
+        changes: {
+          add_nodes: [ { id: "cache", kind: "database", name: "List Cache", tech: "Redis 7 · ElastiCache",
+            desc: "Keeps each owner's task list for 60 seconds." } ],
+          add_edges: [ { id: "api-cache", from: "api", to: "cache", kind: "reads-writes", label: "GET/SET lists" } ] } },
+      { id: "c2", title: "Cache lists, deadlines included", status: "planned", depends_on: ["c1", "s2"], ticket: "TODO-52",
+        changes: { modify: [ { node: "api", set: { props: { cache: "task lists, 60 s TTL, cleared on write" } } } ] } }
+    ]
+  } ]
+};
+const SAMPLE_LAYOUT = {
+  user: [110, 240], web: [430, 240], api: [750, 240], db: [1070, 240],
+  mail: [430, 470], reminder: [910, 470], cache: [750, 24],
+  "api/controller": [100, 135], "api/create": [350, 135], "api/port": [600, 135], "api/jpa": [850, 135],
+  "api/task": [350, 320], "api/policy": [600, 320]
+};
+const DEPENDENCY_KINDS = new Set(["uses", "calls", "reads", "writes", "reads-writes", "implemented-by"]);
+
+/* ---------- helpers ---------- */
+const clone = o => JSON.parse(JSON.stringify(o));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const parentOf = id => { const i = String(id).indexOf('/'); return i > 0 ? id.slice(0, i) : null; };
+const trunc = (s, n) => (s = String(s || '')).length > n ? s.slice(0, n - 1) + '…' : s;
+const $ = id => document.getElementById(id);
+
+// Wayfinder is an engine: it opens empty and draws whichever map (model + layout) you open.
+const EMPTY_MODEL = { system: '', nodes: [], edges: [], areas: [], flows: [], decisions: [], projects: [] };
+let model = clone(EMPTY_MODEL);
+let layout = {};
+let docId = null;
+const state = { mode: 'architecture', overlay: 'none', project: null, step: null, sel: null, tab: 'inspect', query: '', findOpen: false, findIdx: 0, ask: null, msg: null };
+let S = {}, ISSUES = [], VIEW = null;
+
+/* ---------- model → states ---------- */
+/* Projects: each is an ordered list of steps (changesets) over the same baseline.
+   Step ids are unique across the map, so depends_on and decisions can point to a step in any project. */
+const projects = () => Array.isArray(model.projects) ? model.projects : [];
+const allSteps = () => projects().flatMap(p => p.steps || []);
+const projectOf = s => projects().find(p => (p.steps || []).includes(s)) || null;
+const stepById = id => allSteps().find(s => s.id === id) || null;
+const curProject = () => projects().find(p => p.id === state.project) || null;
+const steps = () => (curProject() && curProject().steps) || [];   // the selected project's timeline
+const isDone = s => s.status === 'done';
+// Everything a step waits for: its depends_on, plus the earlier steps of its own project (steps run in order).
+function prereqIds(s) {
+  const p = projectOf(s), own = p ? p.steps : [], i = own.indexOf(s);
+  return [...(i > 0 ? [own[i - 1].id] : []), ...(s.depends_on || [])];
+}
+function closure(s) {
+  const seen = new Set(), stack = [...prereqIds(s)];
+  while (stack.length) { const id = stack.pop(); if (seen.has(id)) continue; seen.add(id); const d = stepById(id); if (d) stack.push(...prereqIds(d)); }
+  return seen;
+}
+// Orders steps so each comes after what it waits for (Kahn's algorithm); a cycle falls back to listed order.
+function orderSteps(list) {
+  const ids = new Set(list.map(s => s.id)), placed = new Set(), out = [];
+  let left = [...list];
+  while (left.length) {
+    const i = left.findIndex(s => prereqIds(s).every(d => !ids.has(d) || placed.has(d)));
+    const s = left.splice(i < 0 ? 0 : i, 1)[0];
+    placed.add(s.id); out.push(s);
+  }
+  return out;
+}
+const touched = s => { const c = s.changes || {}; return new Set([...(c.add_nodes || []).map(n => n.id), ...(c.add_edges || []).map(e => e.id), ...(c.modify || []).map(m => m.node || m.edge), ...(c.remove_nodes || []), ...(c.remove_edges || [])]); };
+const addedBy = id => allSteps().find(s => { const c = s.changes || {}; return (c.add_nodes || []).some(n => n.id === id) || (c.add_edges || []).some(e => e.id === id); });
+function buildState(nodes, edges) {
+  // Children are written nested in model.json and flattened here with scoped ids ("api/controller").
+  const N = [], E = [...edges];
+  nodes.forEach(n => {
+    const { children, ...rest } = n;
+    N.push(rest);
+    if (!children) return;
+    const sc = x => String(x).includes('/') ? x : n.id + '/' + x;
+    (children.nodes || []).forEach(c => N.push({ ...c, id: sc(c.id) }));
+    (children.edges || []).forEach(e => E.push({ ...e, id: sc(e.id), from: sc(e.from), to: sc(e.to) }));
+  });
+  return { nodes: new Map(N.map(n => [n.id, clone(n)])), edges: new Map(E.map(e => [e.id, clone(e)])) };
+}
+function cloneState(s) {
+  return { nodes: new Map([...s.nodes].map(([k, v]) => [k, clone(v)])), edges: new Map([...s.edges].map(([k, v]) => [k, clone(v)])) };
+}
+function applyChanges(st, ch, sid, issues) {
+  (ch.add_nodes || []).forEach(n => { if (st.nodes.has(n.id) && issues) issues.push({ level: 'error', text: `${sid} adds component "${n.id}", which already exists.` }); st.nodes.set(n.id, clone(n)); });
+  (ch.add_edges || []).forEach(e => st.edges.set(e.id, clone(e)));
+  (ch.modify || []).forEach(m => {
+    const isNode = 'node' in m, map = isNode ? st.nodes : st.edges, id = isNode ? m.node : m.edge, cur = map.get(id);
+    if (!cur) { if (issues) issues.push({ level: 'error', missing: id, step: sid, text: `${sid} changes ${isNode ? 'component' : 'connection'} "${id}", which doesn't exist at that point.` }); return; }
+    const next = clone(cur);
+    for (const [k, v] of Object.entries(m.set || {})) {
+      if (k === 'props' && v && typeof v === 'object') next.props = { ...(next.props || {}), ...v }; else next[k] = v;
+    }
+    map.set(id, next);
+  });
+  (ch.remove_edges || []).forEach(id => st.edges.delete(id));
+  (ch.remove_nodes || []).forEach(id => st.nodes.delete(id));
+}
+const applyAll = (start, list, issues) => list.reduce((s, st) => { const n = cloneState(s); applyChanges(n, st.changes || {}, st.id, issues); return n; }, start);
+function recompute() {
+  const issues = [];
+  if (!curProject()) {
+    const open = projects().find(p => (p.steps || []).some(s => !isDone(s)));
+    state.project = (open || projects()[0] || {}).id || null; state.step = null;
+  }
+  S.base = buildState(model.nodes || [], model.edges || []);
+  // Current = baseline + every project's done steps, in the order they were finished.
+  const done = allSteps().map((s, i) => ({ s, i })).filter(x => isDone(x.s))
+    .sort((a, b) => String(a.s.done || '9999').localeCompare(String(b.s.done || '9999')) || a.i - b.i).map(x => x.s);
+  S.current = applyAll(S.base, done, issues);
+  // Each project's timeline starts from what other projects have finished, plus the steps it waits for in them.
+  S.proj = new Map();
+  projects().forEach(p => {
+    const own = p.steps || [], pre = new Set();
+    own.filter(s => !isDone(s)).forEach(s => closure(s).forEach(id => { const d = stepById(id); if (d && !isDone(d) && projectOf(d) !== p) pre.add(d); }));
+    const preList = orderSteps([...pre]);
+    const start = applyAll(applyAll(S.base, done.filter(s => projectOf(s) !== p), null), preList, null);
+    const local = [], at = [start];
+    own.forEach(st => at.push(applyAll(at[at.length - 1], [st], local)));
+    S.proj.set(p.id, { at, pre: preList, local });
+  });
+  S.at = (S.proj.get(state.project) || { at: [S.current] }).at;
+  // Target = current + every unfinished step of every project, in dependency order.
+  S.target = applyAll(S.current, orderSteps(allSteps().filter(s => !isDone(s))), null);
+  validate(issues);
+  S.autoPlaced = autoPlace();
+  const seen = new Set();
+  ISSUES = issues.filter(x => !seen.has(x.text) && seen.add(x.text));
+  if (state.step == null || state.step > steps().length) {
+    const k = steps().findIndex(x => x.status !== 'done');
+    state.step = k < 0 ? steps().length : k + 1;
+  }
+}
+// A missing component that another project's unfinished step adds is an undeclared dependency, not a broken map.
+function needsMessage(p, sid, id) {
+  const by = addedBy(id), q = by && projectOf(by);
+  if (!by || q === p || isDone(by)) return null;
+  return { level: 'warn', text: `${sid} (${p.name}) needs "${nname(id)}", which ${q.name} adds in ${by.id} and isn't done. Add "${by.id}" to ${sid}'s depends_on.` };
+}
+function checkState(s, label, issues, p, sid) {
+  for (const e of s.edges.values()) {
+    const miss = [e.from, e.to].find(n => !s.nodes.has(n));
+    if (miss) { const need = p && needsMessage(p, sid, miss); issues.push(need || { level: 'error', text: `${label}: connection "${e.id}" points to a component that doesn't exist.` }); }
+    ['to_port', 'from_port'].forEach(k => {
+      if (e[k] && !s.nodes.has(e[k])) issues.push({ level: 'error', text: `${label}: connection "${e.id}" enters through "${e[k]}", which doesn't exist.` });
+      else if (e[k] && parentOf(e[k]) !== (k === 'to_port' ? e.to : e.from)) issues.push({ level: 'error', text: `Connection "${e.id}": ${k} "${e[k]}" isn't inside ${k === 'to_port' ? e.to : e.from}.` });
+    });
+  }
+}
+function validate(issues) {
+  checkState(S.base, 'Baseline', issues);
+  checkState(S.current, 'Current map', issues);
+  projects().forEach(p => {
+    const P = S.proj.get(p.id), own = p.steps || [];
+    P.at.forEach((s, i) => { if (i) checkState(s, `${p.name}, after ${own[i - 1].id}`, issues, p, own[i - 1].id); });
+    P.local.forEach(x => issues.push((x.missing && needsMessage(p, x.step, x.missing)) || x));
+  });
+  if (!Array.isArray(model.projects)) issues.push({ level: 'error', text: 'model.json needs a "projects" array (it can be empty).' });
+  const seenIds = new Set();
+  projects().forEach(p => { if (!p.id) issues.push({ level: 'error', text: `A project named "${p.name || '?'}" has no id.` }); });
+  allSteps().forEach(x => {
+    if (seenIds.has(x.id)) issues.push({ level: 'error', text: `Step id "${x.id}" is used twice. Step ids must be unique across all projects.` });
+    seenIds.add(x.id);
+    if (isDone(x) && !parseDay(x.done)) issues.push({ level: 'warn', text: `${x.id} is done but has no "done" date (YYYY-MM-DD).` });
+    if (!isDone(x) && x.done) issues.push({ level: 'warn', text: `${x.id} has a "done" date but its status is ${x.status}.` });
+    const p = projectOf(x), own = p.steps, i = own.indexOf(x);
+    (x.depends_on || []).forEach(dep => {
+      const d = stepById(dep);
+      if (!d) issues.push({ level: 'error', text: `${x.id} depends on "${dep}", which isn't a step.` });
+      else if (projectOf(d) === p && own.indexOf(d) > i) issues.push({ level: 'error', text: `${x.id} depends on ${dep}, which comes later. Reorder the steps.` });
+      else if (isDone(x) && !isDone(d)) issues.push({ level: 'warn', text: `${x.id} is done but its dependency ${dep} isn't.` });
+    });
+    if (closure(x).has(x.id)) issues.push({ level: 'error', text: `${x.id} ends up depending on itself. Check the depends_on chain.` });
+  });
+  const areaIds = new Set();
+  areas().forEach(a => {
+    if (!a.id) { issues.push({ level: 'error', text: `An area named "${a.name || '?'}" has no id.` }); return; }
+    if (areaIds.has(a.id)) issues.push({ level: 'error', text: `Area id "${a.id}" is used twice.` });
+    areaIds.add(a.id);
+    if (!a.name) issues.push({ level: 'warn', text: `Area "${a.id}" has no name.` });
+    if (!(a.members || []).length) issues.push({ level: 'warn', text: `Area "${a.name || a.id}" has no members, so it isn't drawn.` });
+    (a.members || []).forEach(m => {
+      if (parentOf(m)) issues.push({ level: 'warn', text: `Area "${a.name || a.id}" lists "${m}", which is inside a component. Areas group top-level components only.` });
+      else if (!S.base.nodes.has(m) && !S.target.nodes.has(m)) issues.push({ level: 'error', text: `Area "${a.name || a.id}" lists "${m}", which never appears on the map.` });
+    });
+  });
+  (model.decisions || []).forEach(d => (d.areas || []).forEach(id => {
+    if (!areaIds.has(id)) issues.push({ level: 'warn', text: `${d.id} links to area "${id}", which doesn't exist.` });
+  }));
+  // Conflicts: unfinished steps in different projects that change the same thing, with no order between them.
+  const pend = allSteps().filter(s => !isDone(s)), pairs = new Set();
+  pend.forEach((a, i) => pend.slice(i + 1).forEach(b => {
+    const pa = projectOf(a), pb = projectOf(b);
+    if (pa === pb) return;
+    const tb = touched(b), common = [...touched(a)].filter(id => tb.has(id));
+    if (!common.length || closure(a).has(b.id) || closure(b).has(a.id)) return;
+    const key = [a.id, b.id].sort().join('|');
+    if (pairs.has(key)) return; pairs.add(key);
+    issues.push({ level: 'warn', text: `${pa.name} (${a.id}) and ${pb.name} (${b.id}) both change ${common.map(nname).join(', ')}, with no order between them. Add a depends_on to one of them.` });
+  }));
+  (model.flows || []).forEach(f => (f.steps || []).forEach(fs => {
+    if (!S.current.edges.has(fs.edge)) issues.push({ level: 'warn', text: `Flow "${f.name}" uses connection "${fs.edge}", which isn't in the current map.` });
+  }));
+  (model.decisions || []).forEach(d => (d.nodes || []).forEach(n => {
+    if (!S.target.nodes.has(n) && !S.base.nodes.has(n)) issues.push({ level: 'warn', text: `${d.id} links to "${n}", which never appears on the map.` });
+  }));
+  (model.decisions || []).forEach(d => {
+    const L = adrLife(d), took = span(L.proposed, L.decided);
+    if (!['proposed', 'accepted', 'rejected', 'superseded'].includes(d.status)) issues.push({ level: 'warn', text: `${d.id} has status "${d.status}". Use proposed, accepted, rejected or superseded.` });
+    if (!d.proposed) issues.push({ level: 'warn', text: `${d.id} has no proposed date.` });
+    if (d.status === 'proposed' && d.decided) issues.push({ level: 'warn', text: `${d.id} is still proposed but has a decided date.` });
+    if (d.status !== 'proposed' && !L.decided) issues.push({ level: 'warn', text: `${d.id} is ${d.status} but has no decided date.` });
+    if (took != null && took < 0) issues.push({ level: 'error', text: `${d.id} was decided before it was proposed.` });
+    if (d.status === 'superseded' && !L.by) issues.push({ level: 'warn', text: `${d.id} is superseded, but superseded_by doesn't name an existing decision.` });
+  });
+}
+// Components without a position are placed next to their neighbours (a simple layered layout).
+// Positions already in layout.json are never moved: they belong to the person.
+function autoPlace() {
+  const ids = allNodeIds(), missing = ids.filter(id => !Array.isArray(layout[id]));
+  if (!missing.length) return 0;
+  const edges = allEdgeIds().map(anyEdge), scope = id => parentOf(id) || '';
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const pending = new Set(missing), passes = missing.length + 1;
+  for (let pass = 0; pass < passes && pending.size; pass++) {
+    [...pending].forEach(id => {
+      const inner = !!parentOf(id), sc = scope(id);
+      const same = e => scope(e.from) === sc && scope(e.to) === sc;
+      const pred = edges.filter(e => e.to === id && same(e) && Array.isArray(layout[e.from])).map(e => layout[e.from]);
+      const succ = edges.filter(e => e.from === id && same(e) && Array.isArray(layout[e.to])).map(e => layout[e.to]);
+      if (!pred.length && !succ.length && pass < passes - 1) return;
+      const dx = inner ? 250 : 320, dy = inner ? 185 : 150;
+      let x, y;
+      if (pred.length) { x = Math.max(...pred.map(p => p[0])) + dx; y = pred[0][1]; }
+      else if (succ.length) { x = Math.min(...succ.map(p => p[0])) - dx; y = succ[0][1]; }
+      else { x = inner ? 100 : 110; y = inner ? 135 : 240; }
+      const others = ids.filter(o => o !== id && scope(o) === sc && Array.isArray(layout[o]));
+      const free = (cx, cy) => others.every(o => Math.abs(layout[o][0] - cx) > W + 30 || Math.abs(layout[o][1] - cy) > H + 40);
+      const cands = [];
+      if (inner) { [100, 350, 600, 850].forEach(cx => [135, 320].forEach(cy => cands.push([cx, cy]))); }
+      else for (let j = -2; j <= 4; j++) for (let k = -3; k <= 5; k++) cands.push([x + j * dx, Math.max(100, y + k * dy)]);
+      const best = cands.filter(([cx, cy]) => free(cx, cy)).sort((a, b) => Math.hypot(a[0] - x, a[1] - y) - Math.hypot(b[0] - x, b[1] - y))[0]
+        || [inner ? clamp(x, W / 2, IW - W / 2) : x, inner ? clamp(y, 70 + H / 2, IH - H / 2) : y];
+      layout[id] = [Math.round(best[0] / 8) * 8, Math.round(best[1] / 8) * 8];
+      pending.delete(id);
+    });
+  }
+  return missing.length;
+}
+function allNodeIds() { return [...new Set([...S.base.nodes.keys(), ...S.target.nodes.keys()])]; }
+function allEdgeIds() { return [...new Set([...S.base.edges.keys(), ...S.target.edges.keys()])]; }
+function anyNode(id) { return S.target.nodes.get(id) || S.current.nodes.get(id) || S.base.nodes.get(id); }
+function anyEdge(id) { return S.target.edges.get(id) || S.current.edges.get(id) || S.base.edges.get(id); }
+function nname(id) { const n = anyNode(id); return n ? n.name : id; }
+
+function diffFields(a, b) {
+  const out = [];
+  const keys = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
+  keys.forEach(k => {
+    if (k === 'props') {
+      const pk = new Set([...Object.keys(a.props || {}), ...Object.keys(b.props || {})]);
+      pk.forEach(p => { if (JSON.stringify((a.props || {})[p]) !== JSON.stringify((b.props || {})[p])) out.push(p); });
+    } else if (JSON.stringify(a[k]) !== JSON.stringify(b[k])) out.push(k);
+  });
+  return out;
+}
+function diff(a, b) {
+  const res = { nodes: new Map(), edges: new Map() };
+  ['nodes', 'edges'].forEach(t => {
+    new Set([...a[t].keys(), ...b[t].keys()]).forEach(id => {
+      const x = a[t].get(id), y = b[t].get(id);
+      if (!x) res[t].set(id, { s: 'added', data: y });
+      else if (!y) res[t].set(id, { s: 'removed', data: x });
+      else { const f = diffFields(x, y); res[t].set(id, { s: f.length ? 'modified' : 'same', data: y, fields: f }); }
+    });
+  });
+  return res;
+}
+
+/* ---------- view: what the map shows right now ---------- */
+function computeView() {
+  const v = { nodes: new Map(), edges: new Map(), legend: '' };
+  const fromDiff = (d, map) => ({ added: 'added', modified: 'modified', removed: 'removed', same: '' }[d.s] ?? '');
+  if (state.mode === 'architecture') {
+    const ov = state.overlay;
+    if (ov === 'target') {
+      const d = diff(S.current, S.target);
+      ['nodes', 'edges'].forEach(t => d[t].forEach((x, id) => v[t].set(id, { data: x.data, cls: x.s === 'added' ? 'planned' : fromDiff(x), fields: x.fields })));
+    } else if (ov === 'decisions') {
+      // Decisions overlay: components with decisions stay bright (a component also counts its insides).
+      S.current.nodes.forEach((n, id) => {
+        const has = adrStat(id).n || [...S.current.nodes.keys()].some(k => parentOf(k) === id && adrStat(k).n);
+        v.nodes.set(id, { data: n, cls: has ? '' : 'dim' });
+      });
+      S.current.edges.forEach((e, id) => v.edges.set(id, { data: e, cls: 'dim' }));
+    } else if (ov === 'diff') {
+      const d = diff(S.base, S.current);
+      ['nodes', 'edges'].forEach(t => d[t].forEach((x, id) => v[t].set(id, { data: x.data, cls: x.s === 'same' ? 'dim' : fromDiff(x), fields: x.fields })));
+    } else {
+      S.current.nodes.forEach((n, id) => v.nodes.set(id, { data: n, cls: '' }));
+      S.current.edges.forEach((e, id) => v.edges.set(id, { data: e, cls: '' }));
+      const flow = (model.flows || []).find(f => 'flow:' + f.id === ov);
+      if (flow) {
+        const on = new Set();
+        v.edges.forEach(it => it.cls = 'dim');
+        (flow.steps || []).forEach((fs, i) => {
+          const it = v.edges.get(fs.edge); if (!it) return;
+          it.cls = 'flow'; it.badge = (it.badge ? it.badge + ',' : '') + (i + 1);
+          on.add(it.data.from); on.add(it.data.to);
+        });
+        v.nodes.forEach((it, id) => { if (!on.has(id)) it.cls = 'dim'; });
+      }
+    }
+  } else {
+    const i = state.step, cur = S.at[i], prev = i > 0 ? S.at[i - 1] : cur;
+    const d = diff(prev, cur);
+    ['nodes', 'edges'].forEach(t => d[t].forEach((x, id) => v[t].set(id, { data: x.data, cls: fromDiff(x), fields: x.fields })));
+    const fin = S.at[S.at.length - 1];   // this project's end state: later components appear as ghosts
+    fin.nodes.forEach((n, id) => { if (!v.nodes.has(id)) v.nodes.set(id, { data: n, cls: 'ghost' }); });
+    fin.edges.forEach((e, id) => { if (!v.edges.has(id)) v.edges.set(id, { data: e, cls: 'ghost' }); });
+  }
+  // Roll changes up: a change inside a component marks the component itself as changed.
+  if (!(state.mode === 'architecture' && state.overlay.startsWith('flow:'))) {
+    const CH = new Set(['added', 'modified', 'removed', 'planned']);
+    ['nodes', 'edges'].forEach(t => v[t].forEach((it, id) => {
+      const P = v.nodes.get(parentOf(id));
+      if (!P || !CH.has(it.cls)) return;
+      if (P.cls === '' || P.cls === 'dim') P.cls = 'modified';
+      if (P.cls === 'modified' && !(P.fields || []).includes('inside')) P.fields = [...(P.fields || []), 'inside'];
+    }));
+  }
+  // A selected decision keeps the components it affects (and their parents) bright.
+  // A selected area keeps its members bright.
+  const selA = state.sel && state.sel.type === 'area' && areaById(state.sel.id);
+  if (selA) {
+    const keep = new Set(selA.members || []);
+    v.nodes.forEach((it, id) => { if (!keep.has(id) && !keep.has(parentOf(id))) it.faded = true; });
+    v.edges.forEach((it, id) => { const f = parentOf(id) || it.data.from, t = parentOf(id) || it.data.to; if (!(keep.has(f) && keep.has(t))) it.faded = true; });
+  }
+  const adr = state.sel && state.sel.type === 'adr' && (model.decisions || []).find(d => d.id === state.sel.id);
+  if (adr) {
+    const keep = new Set();
+    (adr.nodes || []).forEach(n => { keep.add(n); if (parentOf(n)) keep.add(parentOf(n)); });
+    (adr.areas || []).forEach(a => ((areaById(a) || {}).members || []).forEach(m => keep.add(m)));
+    v.nodes.forEach((it, id) => { if (!keep.has(id)) it.faded = true; });
+    v.edges.forEach((it, id) => { if (!(keep.has(it.data.from) && keep.has(it.data.to))) it.faded = true; });
+  }
+  if (state.findOpen && state.query.trim() && !isAsk()) {
+    const hits = searchAll(state.query);
+    const nIds = new Set(), eIds = new Set();
+    hits.forEach(h => { if (h.type === 'node') nIds.add(h.id); if (h.type === 'edge') eIds.add(h.id); if (h.type === 'flowstep') eIds.add(h.edge); });
+    v.nodes.forEach((it, id) => { if (!nIds.has(id)) it.faded = true; });
+    v.edges.forEach((it, id) => { if (!eIds.has(id)) it.faded = true; });
+  }
+  return v;
+}
+
+/* ---------- SVG drawing ---------- */
+const ICONS = {
+  person: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4.5 4.5-6.5 8-6.5s6.5 2 8 6.5"/>',
+  frontend: '<rect x="2" y="4" width="20" height="15" rx="2"/><path d="M2 8.5h20M5.2 6.3h.01M7.8 6.3h.01"/>',
+  service: '<path d="M12 2.5l8.5 4.9v9.2L12 21.5l-8.5-4.9V7.4z"/><circle cx="12" cy="12" r="3"/>',
+  database: '<ellipse cx="12" cy="5.5" rx="8" ry="3"/><path d="M4 5.5v13c0 1.7 3.6 3 8 3s8-1.3 8-3v-13M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
+  worker: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+  mail: '<rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M3 6.5l9 6.5 9-6.5"/>',
+  external: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/>',
+  controller: '<path d="M3 12h12M11 7l5 5-5 5"/><path d="M20 4v16"/>',
+  usecase: '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M10 8l6 4-6 4z"/>',
+  domain: '<path d="M12 2.5l8.5 4.75v9.5L12 21.5l-8.5-4.75v-9.5z"/><path d="M3.5 7.25L12 12l8.5-4.75M12 12v9.5"/>',
+  port: '<circle cx="12" cy="12" r="8.5"/><path d="M9.5 8.5v7M14.5 8.5v7"/>',
+  adapter: '<path d="M9 3v5M15 3v5M6 8h12v4a6 6 0 0 1-12 0zM12 18v3"/>'
+};
+const markerFor = cls => ({ flow: 'accent', planned: 'accent', added: 'add', modified: 'mod', removed: 'del' }[cls] || 'plain');
+let EXPANDABLE = new Set(), anim = 0;
+const PILL = { added: 'NEW', modified: 'CHANGED', removed: 'REMOVED', planned: 'PLANNED', ghost: 'LATER' };
+function clip(c, o) {
+  const dx = o[0] - c[0], dy = o[1] - c[1];
+  const tx = dx ? (W / 2 + 5) / Math.abs(dx) : Infinity, ty = dy ? (H / 2 + 5) / Math.abs(dy) : Infinity;
+  const t = Math.min(tx, ty);
+  return [c[0] + dx * t, c[1] + dy * t];
+}
+function edgeSVG(id, it) {
+  const d = it.data, A = layout[d.from], B = layout[d.to];
+  if (!A || !B) return '';
+  const p1 = clip(A, B), p2 = clip(B, A);
+  const mx = (p1[0] + p2[0]) / 2, my = (p1[1] + p2[1]) / 2;
+  const lab = d.label || d.kind || '', lw = lab.length * (parentOf(id) ? 7.3 : 6.35) + 12;
+  const mk = markerFor(it.cls);
+  const sel = state.sel && state.sel.type === 'edge' && state.sel.id === id;
+  let badge = '';
+  if (it.badge) {
+    let nx = -(p2[1] - p1[1]), ny = p2[0] - p1[0]; const L = Math.hypot(nx, ny) || 1; nx /= L; ny /= L;
+    if (ny > 0) { nx = -nx; ny = -ny; }
+    const off = Math.abs(ny) < 0.5 ? lw / 2 + 14 : 24;
+    const bx = mx + nx * off, by = my + ny * off, bw = Math.max(20, String(it.badge).length * 7 + 10);
+    badge = `<g class="badge" transform="translate(${bx},${by})"><rect x="${-bw / 2}" y="-10" width="${bw}" height="20" rx="10" fill="var(--accent)"/><text text-anchor="middle" y="4">${esc(it.badge)}</text></g>`;
+  }
+  return `<g class="edge is-${it.cls || 'plain'}${it.faded ? ' is-faded' : ''}${sel ? ' is-selected' : ''}" data-edge="${esc(id)}">
+    <line class="e-hit" x1="${p1[0]}" y1="${p1[1]}" x2="${p2[0]}" y2="${p2[1]}"/>
+    <line class="e-line" x1="${p1[0]}" y1="${p1[1]}" x2="${p2[0]}" y2="${p2[1]}" marker-end="url(#m-${sel ? 'accent' : mk})"/>
+    ${lab ? `<g class="e-label" transform="translate(${mx},${my})"><rect x="${-lw / 2}" y="-9.5" width="${lw}" height="19" rx="4"/><text text-anchor="middle" y="3.6">${esc(lab)}</text></g>` : ''}
+    ${badge}</g>`;
+}
+// The ◆ badge sits on a component's top-right corner: decisions in force or proposed. Amber when one is still open.
+const natural = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+function adrStat(id) {
+  const ds = (model.decisions || []).filter(d => (d.nodes || []).includes(id));
+  return { n: ds.filter(d => d.status === 'accepted' || d.status === 'proposed').length, open: ds.filter(d => d.status === 'proposed').length };
+}
+const badgeW = st => 26 + String(st.n).length * 6.5;
+function badgeSVG(st, x, y) {
+  if (!st.n) return '';
+  const tip = `${plural(st.n, 'decision')}${st.open ? `, ${st.open} still proposed` : ''}`;
+  return `<g class="n-adr${st.open ? ' is-open' : ''}" transform="translate(${x},${y})"><title>${esc(tip)}</title><rect width="${badgeW(st)}" height="18" rx="9"/><path class="dia" d="M10 4.5l4.5 4.5L10 13.5 5.5 9z"/><text x="18" y="12.8">${st.n}</text></g>`;
+}
+function adrBadge(id) { const st = adrStat(id); return badgeSVG(st, W - badgeW(st) - 10, -9); }
+// Decisions can also be about an area (a team convention, a deployment rule) through their "areas" field.
+const adrsForArea = id => (model.decisions || []).filter(d => (d.areas || []).includes(id)).sort((a, b) => natural(a.id, b.id));
+const statOf = ds => ({ n: ds.filter(d => d.status === 'accepted' || d.status === 'proposed').length, open: ds.filter(d => d.status === 'proposed').length });
+function nodeSVG(id, it, innerHTML) {
+  const n = it.data, pos = layout[id];
+  if (!pos) return '';
+  const sel = state.sel && state.sel.type === 'node' && state.sel.id === id;
+  const pill = PILL[it.cls], pw = pill ? pill.length * 6 + 12 : 0, kind = String(n.kind || '').toUpperCase();
+  const nest = innerHTML ? `<g class="n-nest" transform="translate(${40 + kind.length * 6.3 + 6},14.5)"><rect width="11" height="11" rx="2"/><rect x="3" y="3" width="5" height="5" rx="1"/></g>` : '';
+  return `<g class="node is-${it.cls || 'plain'}${it.faded ? ' is-faded' : ''}${sel ? ' is-selected' : ''}${innerHTML ? ' has-inner' : ''}" data-node="${esc(id)}" transform="translate(${pos[0] - W / 2},${pos[1] - H / 2})" tabindex="0" role="button" aria-label="${esc(n.name)}, ${esc(n.kind)}${innerHTML ? ', has an inside view' : ''}">
+    <rect class="n-box" width="${W}" height="${H}" rx="8"/>
+    <g class="n-outer">
+      <g class="n-icon" transform="translate(12,10) scale(.82)">${ICONS[n.icon] || ICONS[n.kind] || ICONS.external}</g>
+      <text class="n-kind" x="40" y="24">${esc(kind)}</text>${nest}
+      <text class="n-name" x="14" y="51">${esc(trunc(n.name, 19))}</text>
+      <text class="n-tech" x="14" y="67">${esc(trunc(n.tech, 26))}</text>
+      ${pill ? `<g class="n-pill" transform="translate(${W - 8 - pw},11)"><rect width="${pw}" height="16" rx="8"/><text x="${pw / 2}" y="11.2" text-anchor="middle">${pill}</text></g>` : ''}
+      ${adrBadge(id)}
+    </g>
+    ${innerHTML ? `<g class="inner" transform="scale(${KIN})">${innerHTML}</g>` : ''}
+  </g>`;
+}
+// An outer connection that lands on a child is drawn inside as a stub from the box border to that child.
+function stubSVG(id, it, otherId, childId, inbound) {
+  const P = layout[parentOf(childId)], O = layout[otherId], C = layout[childId];
+  if (!P || !O || !C) return '';
+  const b = clip(P, O);
+  const bx = Math.max(0, Math.min(IW, (b[0] - (P[0] - W / 2)) / KIN)), by = Math.max(0, Math.min(IH, (b[1] - (P[1] - H / 2)) / KIN));
+  const c = clip(C, [bx, by]);
+  const [x1, y1, x2, y2] = inbound ? [bx, by, c[0], c[1]] : [c[0], c[1], bx, by];
+  const right = bx > IW / 2, lab = (inbound ? 'from ' : 'to ') + nname(otherId);
+  return `<g class="edge stub is-${it.cls || 'plain'}${it.faded ? ' is-faded' : ''}" data-edge="${esc(id)}">
+    <line class="e-hit" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>
+    <line class="e-line" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" marker-end="url(#m-${markerFor(it.cls)})"/>
+    <circle class="stub-dot" cx="${bx}" cy="${by}" r="6"/>
+    <text class="stub-label" x="${right ? bx - 12 : bx + 12}" y="${by + 26}" text-anchor="${right ? 'end' : 'start'}">${esc(lab)}</text></g>`;
+}
+function innerSVG(pid, parts) {
+  const P = VIEW.nodes.get(pid).data;
+  let stubs = '';
+  VIEW.edges.forEach((it, id) => {
+    const e = it.data;
+    if (e.to === pid && e.to_port) stubs += stubSVG(id, it, e.from, e.to_port, true);
+    if (e.from === pid && e.from_port) stubs += stubSVG(id, it, e.to, e.from_port, false);
+  });
+  return `<text class="in-title" x="22" y="40">${esc(P.name)}</text>
+    <text class="in-sub" x="22" y="60">${esc(String(P.kind || '').toUpperCase())} · INSIDE · ${esc(P.tech || '')}</text>` + stubs + parts.e + parts.n;
+}
+/* Areas have no stored geometry: each is drawn around its members' boxes, so it follows the layout.
+   Bigger areas get more padding, so overlapping areas don't share a border. */
+const areas = () => Array.isArray(model.areas) ? model.areas : [];
+const areaById = id => areas().find(a => a.id === id) || null;
+const areasOf = nodeId => areas().filter(a => (a.members || []).includes(nodeId));
+function areaRects() {
+  const rects = areas().map(a => {
+    const ms = (a.members || []).filter(id => !parentOf(id) && VIEW && VIEW.nodes.has(id) && layout[id]);
+    if (!ms.length) return null;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    ms.forEach(id => { const [x, y] = layout[id]; x0 = Math.min(x0, x - W / 2); y0 = Math.min(y0, y - H / 2); x1 = Math.max(x1, x + W / 2); y1 = Math.max(y1, y + H / 2); });
+    return { a, x0, y0, x1, y1, size: (x1 - x0) * (y1 - y0) };
+  }).filter(Boolean);
+  const bySize = [...rects].sort((p, q) => p.size - q.size);
+  rects.forEach(r => {
+    const overlapsSmaller = bySize.filter(o => o !== r && o.size < r.size && o.x0 < r.x1 && r.x0 < o.x1 && o.y0 < r.y1 && r.y0 < o.y1).length;
+    const pad = 22 + overlapsSmaller * 18;
+    r.x = r.x0 - pad; r.y = r.y0 - pad - 18; r.w = r.x1 - r.x0 + pad * 2; r.h = r.y1 - r.y0 + pad * 2 + 18;
+  });
+  return rects;
+}
+// Components that sit inside an area's rectangle on the map without being members of it.
+function strangersIn(r) {
+  return [...VIEW.nodes.keys()].filter(id => !parentOf(id) && layout[id] && !(r.a.members || []).includes(id)
+    && layout[id][0] > r.x && layout[id][0] < r.x + r.w && layout[id][1] > r.y && layout[id][1] < r.y + r.h);
+}
+function areaSVG(r, faded) {
+  const sel = state.sel && state.sel.type === 'area' && state.sel.id === r.a.id;
+  const kind = String(r.a.kind || 'area').toUpperCase(), name = r.a.name || r.a.id;
+  const tw = Math.max(kind.length * 6.6, 0) + name.length * 7.1 + 30;
+  return `<g class="area${sel ? ' is-selected' : ''}${faded ? ' is-faded' : ''}" data-area="${esc(r.a.id)}">
+    <rect class="a-box" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="14"/>
+    <g class="a-tab" data-area-tab="${esc(r.a.id)}" transform="translate(${r.x + 12},${r.y - 11})" role="button" tabindex="0" aria-label="Area ${esc(name)}">
+      <rect width="${tw}" height="22" rx="11"/>
+      <text class="a-kind" x="11" y="14.5">${esc(kind)}</text>
+      <text class="a-name" x="${11 + kind.length * 6.6 + 8}" y="15">${esc(name)}</text>
+      ${badgeSVG(statOf(adrsForArea(r.a.id)), tw + 6, 2)}
+    </g></g>`;
+}
+function drawMap() {
+  const inner = {}, bucket = p => inner[p] || (inner[p] = { e: '', n: '' });
+  let edges = '', nodes = '';
+  VIEW.edges.forEach((it, id) => { const p = parentOf(id); if (p) bucket(p).e += edgeSVG(id, it); else edges += edgeSVG(id, it); });
+  VIEW.nodes.forEach((it, id) => { const p = parentOf(id); if (p) bucket(p).n += nodeSVG(id, it); });
+  EXPANDABLE = new Set(Object.keys(inner).filter(p => VIEW.nodes.has(p) && inner[p].n));
+  VIEW.nodes.forEach((it, id) => { if (!parentOf(id)) nodes += nodeSVG(id, it, EXPANDABLE.has(id) ? innerSVG(id, inner[id]) : ''); });
+  const selArea = state.sel && state.sel.type === 'area' ? state.sel.id : null;
+  const areasSVG = areaRects().sort((p, q) => q.size - p.size).map(r => areaSVG(r, selArea && selArea !== r.a.id)).join('');
+  $('layer').innerHTML = areasSVG + edges + nodes;
+  onViewChange();
+}
+
+/* ---------- pan, zoom, drag ---------- */
+const svg = $('map');
+let vb = { x: 0, y: 0, w: 1200, h: 700 };
+const setVB = () => { svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`); onViewChange(); };
+// Semantic zoom: how much of the stage one component fills decides how far its interior has faded in.
+function onViewChange() {
+  const ctm = svg.getScreenCTM(), r = svg.getBoundingClientRect();
+  if (!ctm || !r.width || !r.height) return;
+  const ratio = Math.max(W * ctm.a / r.width, H * ctm.a / r.height);
+  const e = Math.max(0, Math.min(1, (ratio - 0.42) / 0.3));
+  svg.style.setProperty('--inner', e.toFixed(3));
+  svg.classList.toggle('peek', e > 0.01);
+  svg.classList.toggle('deep', e > 0.5);
+  let focus = '';
+  if (e > 0.5) {
+    const cx = vb.x + vb.w / 2, cy = vb.y + vb.h / 2;
+    EXPANDABLE.forEach(id => { const p = layout[id]; if (p && Math.abs(cx - p[0]) < W / 2 && Math.abs(cy - p[1]) < H / 2) focus = id; });
+  }
+  const c = $('crumbs'), key = focus ? focus + '|' + nname(focus) : '';
+  if (c.dataset.key !== key) {
+    c.dataset.key = key; c.hidden = !focus;
+    c.innerHTML = focus ? `<button class="link" data-fit="1">${esc(model.system || 'system')}</button><span class="sep">›</span><b>${esc(nname(focus))}</b><span class="muted mono">inside</span>` : '';
+  }
+}
+function toWorld(cx, cy) { const p = svg.createSVGPoint(); p.x = cx; p.y = cy; return p.matrixTransform(svg.getScreenCTM().inverse()); }
+function zoomAt(p, f) {
+  cancelAnimationFrame(anim);
+  const nw = Math.min(5000, Math.max(60, vb.w * f)), k = nw / vb.w;
+  vb.x = p.x - (p.x - vb.x) * k; vb.y = p.y - (p.y - vb.y) * k; vb.w = nw; vb.h *= k; setVB();
+}
+const reduceMotion = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+function animateTo(t) {
+  cancelAnimationFrame(anim);
+  if (reduceMotion()) { vb = t; setVB(); return; }
+  const s = { ...vb }, t0 = performance.now(), D = 560;
+  const sc = [s.x + s.w / 2, s.y + s.h / 2], tc = [t.x + t.w / 2, t.y + t.h / 2];
+  const step = now => {
+    let k = Math.min(1, (now - t0) / D);
+    k = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+    const w = s.w * Math.pow(t.w / s.w, k), h = s.h * Math.pow(t.h / s.h, k);
+    const cx = sc[0] + (tc[0] - sc[0]) * k, cy = sc[1] + (tc[1] - sc[1]) * k;
+    vb = { x: cx - w / 2, y: cy - h / 2, w, h }; setVB();
+    if (k < 1) anim = requestAnimationFrame(step);
+  };
+  anim = requestAnimationFrame(step);
+}
+function fitBox(x0, y0, x1, y1, animate) {
+  let w = x1 - x0, h = y1 - y0;
+  const r = svg.getBoundingClientRect();
+  if (r.width && r.height) {
+    const ar = r.width / r.height;
+    if (w / h < ar) { const nw = h * ar; x0 -= (nw - w) / 2; w = nw; } else { const nh = w / ar; y0 -= (nh - h) / 2; h = nh; }
+  }
+  const t = { x: x0, y: y0, w, h };
+  if (animate) animateTo(t); else { cancelAnimationFrame(anim); vb = t; setVB(); }
+}
+function fit(animate) {
+  const ids = allNodeIds().filter(id => !parentOf(id) && layout[id]);
+  if (!ids.length) return;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  ids.forEach(id => { const [x, y] = layout[id]; x0 = Math.min(x0, x - W / 2); y0 = Math.min(y0, y - H / 2); x1 = Math.max(x1, x + W / 2); y1 = Math.max(y1, y + H / 2); });
+  if (VIEW) areaRects().forEach(r => { x0 = Math.min(x0, r.x); y0 = Math.min(y0, r.y - 12); x1 = Math.max(x1, r.x + r.w); y1 = Math.max(y1, r.y + r.h); });
+  fitBox(x0 - 50, y0 - 50, x1 + 70, y1 + 130, animate === true);
+}
+function zoomInto(id) {
+  const p = layout[id]; if (!p) return;
+  const px = W * 0.03, py = H * 0.03;
+  fitBox(p[0] - W / 2 - px, p[1] - H / 2 - py, p[0] + W / 2 + px, p[1] + H / 2 + py, true);
+}
+function worldPos(id) {
+  const p = parentOf(id), c = layout[id];
+  if (!c) return null;
+  if (!p) return c;
+  const P = layout[p];
+  return P ? [P[0] - W / 2 + c[0] * KIN, P[1] - H / 2 + c[1] * KIN] : null;
+}
+function centerOn(id) {
+  const p = worldPos(id); if (!p) return;
+  animateTo({ x: p[0] - vb.w / 2, y: p[1] - vb.h / 2, w: vb.w, h: vb.h });
+}
+svg.addEventListener('wheel', e => { e.preventDefault(); zoomAt(toWorld(e.clientX, e.clientY), Math.exp(e.deltaY * 0.0015)); }, { passive: false });
+$('z-in').onclick = () => zoomAt({ x: vb.x + vb.w / 2, y: vb.y + vb.h / 2 }, 0.8);
+$('z-out').onclick = () => zoomAt({ x: vb.x + vb.w / 2, y: vb.y + vb.h / 2 }, 1.25);
+$('z-fit').onclick = () => fit(true);
+
+let drag = null, lastTap = { id: null, t: 0 };
+svg.addEventListener('pointerdown', e => {
+  cancelAnimationFrame(anim);
+  const tab = e.target.closest('[data-area-tab]');
+  if (tab) {
+    // Dragging an area's label moves all its members together.
+    const a = areaById(tab.dataset.areaTab), ms = (a.members || []).filter(id => !parentOf(id) && layout[id]);
+    drag = { type: 'area', id: a.id, before: snap(`move area ${a.name || a.id}`), start: toWorld(e.clientX, e.clientY), orig: ms.map(id => [id, [...layout[id]]]), moved: false };
+    svg.setPointerCapture(e.pointerId);
+    return;
+  }
+  const hit = e.target.closest('[data-node],[data-edge]');
+  const nodeId = hit && hit.dataset.node;
+  // Inside a zoomed-in component, dragging its background pans instead of moving the component.
+  if (nodeId && !(EXPANDABLE.has(nodeId) && svg.classList.contains('deep')))
+    drag = { type: 'node', id: nodeId, before: snap(`move ${nname(nodeId)}`), k: parentOf(nodeId) ? KIN : 1, start: toWorld(e.clientX, e.clientY), orig: [...layout[nodeId]], moved: false };
+  else drag = { type: 'pan', sx: e.clientX, sy: e.clientY, vb0: { ...vb }, moved: false, edge: hit && hit.dataset.edge, tapNode: nodeId };
+  svg.setPointerCapture(e.pointerId);
+});
+svg.addEventListener('pointermove', e => {
+  if (!drag) return;
+  if (drag.type === 'area') {
+    const p = toWorld(e.clientX, e.clientY), dx = p.x - drag.start.x, dy = p.y - drag.start.y;
+    if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+    drag.moved = true; svg.classList.add('dragging-area');
+    drag.orig.forEach(([id, [x, y]]) => { layout[id] = [Math.round((x + dx) / 8) * 8, Math.round((y + dy) / 8) * 8]; });
+    drawMap();
+  } else if (drag.type === 'node') {
+    const p = toWorld(e.clientX, e.clientY), dx = p.x - drag.start.x, dy = p.y - drag.start.y;
+    if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+    drag.moved = true;
+    let nx = Math.round((drag.orig[0] + dx / drag.k) / 8) * 8, ny = Math.round((drag.orig[1] + dy / drag.k) / 8) * 8;
+    if (drag.k !== 1) { nx = Math.max(W / 2, Math.min(IW - W / 2, nx)); ny = Math.max(70 + H / 2, Math.min(IH - H / 2, ny)); }
+    layout[drag.id] = [nx, ny];
+    drawMap();
+  } else {
+    const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+    if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+    drag.moved = true; svg.classList.add('panning');
+    const r = svg.getBoundingClientRect(), k = Math.max(vb.w / r.width, vb.h / r.height);
+    vb.x = drag.vb0.x - dx * k; vb.y = drag.vb0.y - dy * k; setVB();
+  }
+});
+svg.addEventListener('pointerup', () => {
+  if (!drag) return;
+  svg.classList.remove('panning', 'dragging-area');
+  if (drag.type === 'area') {
+    if (drag.moved) { record(drag.before); persist(); } else select({ type: 'area', id: drag.id });
+  } else if (drag.type === 'node') {
+    if (drag.moved) { record(drag.before); persist(); }
+    else {
+      const id = drag.id, now = performance.now();
+      select({ type: 'node', id });
+      if (lastTap.id === id && now - lastTap.t < 420 && EXPANDABLE.has(id)) { zoomInto(id); lastTap = { id: null, t: 0 }; }
+      else lastTap = { id, t: now };
+    }
+  } else if (!drag.moved) {
+    if (drag.edge) select({ type: 'edge', id: drag.edge });
+    else if (drag.tapNode) select({ type: 'node', id: drag.tapNode });
+    else { state.sel = null; render(); }
+  }
+  drag = null;
+});
+svg.addEventListener('keydown', e => {
+  const at = e.target.closest && e.target.closest('[data-area-tab]');
+  if (at && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); select({ type: 'area', id: at.dataset.areaTab }); return; }
+  const g = e.target.closest && e.target.closest('[data-node]');
+  if (g && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); select({ type: 'node', id: g.dataset.node }); }
+  if (g && e.key === 'i' && EXPANDABLE.has(g.dataset.node)) zoomInto(g.dataset.node);
+});
+
+/* ---------- search ---------- */
+function searchIndex() {
+  const out = [];
+  allNodeIds().forEach(id => { const n = anyNode(id); out.push({ type: 'node', id, title: n.name, sub: `${n.kind} · ${parentOf(id) ? 'inside ' + nname(parentOf(id)) : n.tech || ''}`, text: [n.id, n.name, n.kind, n.tech, n.desc, ...Object.entries(n.props || {}).flat()].join(' ') }); });
+  allEdgeIds().forEach(id => { const e = anyEdge(id); out.push({ type: 'edge', id, title: `${nname(e.from)} → ${nname(e.to)}`, sub: `${e.kind} · ${e.label || ''}`, text: [e.id, e.kind, e.label, nname(e.from), nname(e.to)].join(' ') }); });
+  areas().forEach(a => out.push({ type: 'area', id: a.id, title: a.name || a.id, sub: `${a.kind || 'area'} · ${plural((a.members || []).length, 'member')}`, text: [a.id, a.name, a.kind, a.desc, ...(a.members || []).map(nname)].join(' ') }));
+  (model.decisions || []).forEach(d => out.push({ type: 'adr', id: d.id, title: `${d.id} · ${d.title}`, sub: adrWhen(d), text: ['decision', d.id, d.title, d.status, d.proposed, d.decided, d.context, d.decision, d.consequences, ...(d.areas || []).map(a => (areaById(a) || {}).name || a)].join(' ') }));
+  allSteps().forEach(s => { const p = projectOf(s); out.push({ type: 'step', id: s.id, title: `${s.id} · ${s.title}`, sub: `${p.name} · ${s.status.replace('_', ' ')}${s.ticket ? ' · ' + s.ticket : ''}`, text: [s.id, s.title, p.name, s.ticket, s.status, JSON.stringify(s.changes)].join(' ') }); });
+  (model.flows || []).forEach(f => (f.steps || []).forEach((fs, i) => out.push({ type: 'flowstep', id: f.id + ':' + i, flow: f.id, edge: fs.edge, title: `${f.name} · step ${i + 1}`, sub: fs.text, text: [f.name, fs.text].join(' ') })));
+  return out;
+}
+function searchAll(q) {
+  const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!terms.length) return [];
+  return searchIndex().filter(x => { const t = x.text.toLowerCase(); return terms.every(w => t.includes(w)); });
+}
+function hl(s, q) {
+  let h = esc(s);
+  q.toLowerCase().split(/\s+/).filter(w => w.length > 1).forEach(w => {
+    h = h.replace(new RegExp('(' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')(?![^<]*>)', 'gi'), '<mark>$1</mark>');
+  });
+  return h;
+}
+
+/* ---------- graph queries (what an agent would call) ---------- */
+function stateFor(id) { return S.current.nodes.has(id) ? S.current : S.target; }
+function incoming(st, id) { return [...st.edges.values()].filter(e => e.to === id); }
+function outgoing(st, id) { return [...st.edges.values()].filter(e => e.from === id); }
+// Walks dependencies backwards, across levels: an outer connection that lands on a child (to_port) counts too.
+function impactOf(id) {
+  const st = stateFor(id), seen = new Map(), queue = [id];
+  while (queue.length) {
+    const cur = queue.shift();
+    [...st.edges.values()].filter(e => (e.to === cur || e.to_port === cur) && DEPENDENCY_KINDS.has(e.kind)).forEach(e => {
+      [e.from_port, e.from].filter(Boolean).forEach(f => {
+        if (f !== id && !seen.has(f)) { seen.set(f, cur === id ? null : cur); queue.push(f); }
+      });
+    });
+  }
+  return [...seen.entries()].map(([n, via]) => ({ id: n, via }));
+}
+function stepsTouching(id) {
+  return allSteps().map(s => ({ s, p: projectOf(s) })).filter(({ s }) => {
+    const c = s.changes || {};
+    const ids = [...(c.add_nodes || []).map(n => n.id), ...(c.add_edges || []).flatMap(e => [e.id, e.from, e.to]),
+      ...(c.modify || []).map(m => m.node || m.edge), ...(c.remove_nodes || []), ...(c.remove_edges || [])];
+    return ids.some(x => x === id || parentOf(x) === id);
+  });
+}
+const touchList = touch => touch.length ? `<ul class="list">${touch.map(({ s, p }) => `<li><button class="item" data-goto-step="${esc(s.id)}"><span class="main"><span class="t">${esc(s.id)} · ${esc(s.title)}</span><span class="s">${esc(p ? p.name : '')}</span></span>${statusPill(s.status)}</button></li>`).join('')}</ul>` : '<p class="muted">No planned changes.</p>';
+const stepRef = id => { const d = stepById(id), q = d && projectOf(d); return `<button class="link" data-goto-step="${esc(id)}">${esc(id)}</button>${q && q !== curProject() ? ` <span class="muted">(${esc(q.name)})</span>` : ''}`; };
+const childrenOf = id => [...VIEW.nodes.keys()].filter(k => parentOf(k) === id);
+const where = id => parentOf(id) ? ` <span class="muted">inside ${esc(nname(parentOf(id)))}</span>` : '';
+function decisionsFor(id) { return (model.decisions || []).filter(d => (d.nodes || []).includes(id)).sort((a, b) => natural(a.id, b.id)); }
+function flowsUsing(edgeId) { return (model.flows || []).filter(f => (f.steps || []).some(s => s.edge === edgeId)); }
+
+/* ---------- panel rendering ---------- */
+const nchip = id => `<button class="nchip" data-node="${esc(id)}">${esc(nname(id))}</button>`;
+const statusPill = s => `<span class="pill p-${esc(s)}">${esc(String(s).replace('_', ' '))}</span>`;
+function kv(obj, changed = []) {
+  const rows = Object.entries(obj || {});
+  if (!rows.length) return '';
+  return `<dl class="kv">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd class="${changed.includes(k) ? 'chg' : ''}">${esc(v)}</dd>`).join('')}</dl>`;
+}
+function changeLines(s, i) {
+  const prev = S.at[i - 1] || S.base, cur = S.at[i] || prev, d = diff(prev, cur), out = [];
+  d.nodes.forEach((x, id) => {
+    const inn = parentOf(id) ? ` (inside ${nname(parentOf(id))})` : '';
+    if (x.s === 'added') out.push(['add', `component ${x.data.name}${inn}`, id, 'node']);
+    if (x.s === 'removed') out.push(['del', `component ${x.data.name}${inn}`, id, 'node']);
+    if (x.s === 'modified') out.push(['mod', `${x.data.name}${inn}: ${x.fields.join(', ')}`, id, 'node']);
+  });
+  d.edges.forEach((x, id) => {
+    const nm = `${nname(x.data.from)} → ${nname(x.data.to)}`;
+    if (x.s === 'added') out.push(['add', `connection ${nm} (${x.data.kind})`, id, 'edge']);
+    if (x.s === 'removed') out.push(['del', `connection ${nm}`, id, 'edge']);
+    if (x.s === 'modified') out.push(['mod', `${nm}: ${x.fields.join(', ')}`, id, 'edge']);
+  });
+  return out.map(([op, t, id, type]) => `<div class="change"><span class="op op-${op}">${{ add: '+', mod: '~', del: '−' }[op]}</span><button class="link" data-${type}="${esc(id)}">${esc(t)}</button></div>`).join('') || '<p class="muted">No changes to the map in this step.</p>';
+}
+function stepDetail(i) {
+  const p = curProject();
+  if (!p) return `<div><div class="eyebrow">PROJECTS</div><h2>No projects yet</h2></div><p class="muted">This map has no projects. Add one to <code>projects</code> in Model, or ask an agent to plan one.</p>`;
+  if (i === 0) {
+    const pre = S.proj.get(p.id).pre;
+    return `<div><div class="eyebrow">START · ${esc(p.name.toUpperCase())}</div><h2>Before the first step</h2></div>
+      <p>${esc(p.goal || '')}</p>
+      <p class="muted">The map this project starts from: the current architecture, including what other projects have finished.${pre.length ? '' : ' Pick a step below the map to see what it changes.'}</p>
+      ${pre.length ? `<section><h3>Waits for other projects</h3><p class="muted" style="margin-bottom:8px">These unfinished steps are already applied here, because this project depends on them:</p><ul class="list">${pre.map(d => `<li><button class="item" data-goto-step="${esc(d.id)}"><span class="main"><span class="t">${esc(d.id)} · ${esc(d.title)}</span><span class="s">${esc(projectOf(d).name)}</span></span>${statusPill(d.status)}</button></li>`).join('')}</ul></section>` : ''}
+      <p class="muted" style="font-size:12.5px">Components that only exist later are drawn faintly in their final position, so nothing moves while you step through.</p>`;
+  }
+  const s = steps()[i - 1], adr = (model.decisions || []).find(d => d.id === s.decision);
+  return `<div><div class="eyebrow">STEP ${i} OF ${steps().length} · ${esc(s.id)} ${statusPill(s.status)}</div><h2>${esc(s.title)}</h2></div>
+    <section><h3>Changes to the map</h3>${changeLines(s, i)}</section>
+    <dl class="kv">
+      ${s.depends_on && s.depends_on.length ? `<dt>after</dt><dd>${s.depends_on.map(stepRef).join(', ')}</dd>` : ''}
+      ${s.ticket ? `<dt>ticket</dt><dd>${esc(s.ticket)}</dd>` : ''}
+      ${s.done ? `<dt>finished</dt><dd>${fmtDay(s.done)}</dd>` : ''}
+    </dl>
+    ${adr ? `<section><h3>Why</h3><button class="item" data-adr="${esc(adr.id)}"><span class="main"><span class="t">${esc(adr.id)} · ${esc(adr.title)}</span><span class="s">${esc(adr.decision)}</span></span>${statusPill(adr.status)}</button></section>` : ''}`;
+}
+function overview() {
+  return `<div><div class="eyebrow">${esc(model.system || 'system')} · ${[...S.current.nodes.keys()].filter(id => !parentOf(id)).length} components · ${[...S.current.edges.keys()].filter(id => !parentOf(id)).length} connections</div><h2>What you're looking at</h2></div>
+    <p class="muted">One model drives every view. The map, overlays, project steps, decisions and search all read from <b>model.json</b>. Box positions live separately in <b>layout.json</b>, so moving a box never looks like an architecture change.</p>
+    <div class="note">Click a component or connection to inspect it. Drag boxes to arrange them, scroll to zoom, drag the background to pan. Components marked with a small nested square have an inside view: double-click them, or just keep zooming in. Press <span class="kbd">${IS_MAC ? '⌘F' : 'Ctrl+F'}</span> to search everything, or <span class="kbd">?</span> to ask a question. A ◆ badge counts a component's decisions; type <b>ADR</b> in search for the full history.</div>
+    ${[...EXPANDABLE].map(id => `<button class="btn primary" data-zoom="${esc(id)}">Look inside ${esc(nname(id))}</button>`).join('')}
+    <section><h3>Projects · ${projects().length}</h3>${projects().length ? `<ul class="list">${projects().map(p => {
+      const st = p.steps || [], done = st.filter(isDone).length, open = done < st.length;
+      return `<li><button class="item" data-project="${esc(p.id)}"><span class="main"><span class="t">${esc(p.name)}</span><span class="s">${done} of ${st.length} steps done · ${esc(p.goal || '')}</span></span><span class="pill ${open ? 'p-in_progress' : 'p-done'}">${open ? 'open' : 'finished'}</span></button></li>`;
+    }).join('')}</ul>` : '<p class="muted">No projects in this map.</p>'}</section>
+    <section><h3>Model check</h3>${issuesHTML(true)}</section>`;
+}
+function issuesHTML(short) {
+  if (!ISSUES.length) return `<div class="issue"><span class="lv lv-ok">OK</span><span>Every step leaves a valid map: no dangling connections, dependencies in order.</span></div>`;
+  const list = short ? ISSUES.slice(0, 3) : ISSUES;
+  return list.map(x => `<div class="issue"><span class="lv lv-${x.level}">${x.level === 'error' ? 'ERROR' : 'WARN'}</span><span>${esc(x.text)}</span></div>`).join('') + (short && ISSUES.length > 3 ? `<button class="link" data-sheet="model">${ISSUES.length - 3} more in Model</button>` : '');
+}
+/* ---------- decision lifecycle: proposed → accepted | rejected → (superseded) ---------- */
+const DAY = 864e5;
+const parseDay = s => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || '')); return m ? Date.UTC(+m[1], m[2] - 1, +m[3]) : null; };
+const todayUTC = () => { const n = new Date(); return Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()); };
+const fmtDay = s => {
+  const t = parseDay(s); if (t == null) return esc(s || '');
+  const same = new Date(t).getUTCFullYear() === new Date().getFullYear();
+  return new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(same ? {} : { year: 'numeric' }), timeZone: 'UTC' });
+};
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+const span = (a, b) => { const x = parseDay(a), y = parseDay(b); return x == null || y == null ? null : Math.round((y - x) / DAY); };
+function adrLife(d) {
+  const proposed = d.proposed || null, decided = d.decided || null;
+  const by = d.superseded_by ? (model.decisions || []).find(x => x.id === d.superseded_by) : null;
+  const supersededOn = by ? by.decided || null : null;
+  return { proposed, decided, by, supersededOn, rejected: d.status === 'rejected', last: supersededOn || decided || proposed || '' };
+}
+function adrWhen(d) {
+  const L = adrLife(d);
+  if (d.status === 'proposed') { const open = span(L.proposed, new Date(todayUTC()).toISOString().slice(0, 10)); return `proposed ${fmtDay(L.proposed)}${open != null ? ' · open ' + plural(Math.max(0, open), 'day') : ''}`; }
+  if (d.status === 'superseded') return `accepted ${fmtDay(L.decided)} · superseded ${fmtDay(L.supersededOn)}`;
+  const took = span(L.proposed, L.decided);
+  return `${L.rejected ? 'rejected' : 'accepted'} ${fmtDay(L.decided)}${took != null ? ' · ' + (took === 0 ? 'same day' : 'took ' + plural(took, 'day')) : ''}`;
+}
+function lifeHTML(d) {
+  const L = adrLife(d), items = [];
+  const li = (cls, lab, dt) => `<li class="${cls}"><span class="dot"></span><span class="lab">${lab}</span><span class="dt">${dt}</span></li>`;
+  items.push(li('prop', 'Proposed', L.proposed ? fmtDay(L.proposed) : 'date not recorded'));
+  if (d.status === 'proposed') {
+    const open = span(L.proposed, new Date(todayUTC()).toISOString().slice(0, 10));
+    items.push(li('pending', 'Awaiting decision', open != null ? 'open for ' + plural(Math.max(0, open), 'day') : ''));
+  } else {
+    const took = span(L.proposed, L.decided);
+    items.push(li(L.rejected ? 'no' : 'ok', L.rejected ? 'Rejected' : 'Accepted', (L.decided ? fmtDay(L.decided) : 'date not recorded') + (took != null ? ' · ' + (took === 0 ? 'same day' : plural(took, 'day') + ' after proposal') : '')));
+  }
+  if (d.status === 'superseded') {
+    const inForce = span(L.decided, L.supersededOn);
+    items.push(li('sup', `Superseded by ${L.by ? `<button class="link" data-adr="${esc(L.by.id)}">${esc(L.by.id)}</button>` : esc(d.superseded_by || 'an unknown decision')}`, (L.supersededOn ? fmtDay(L.supersededOn) : '') + (inForce != null ? ' · in force ' + plural(inForce, 'day') : '')));
+  }
+  return `<section><h3>Lifecycle</h3><ol class="life">${items.join('')}</ol></section>`;
+}
+// Closed decisions (accepted, rejected, superseded) are immutable records. The only allowed change is
+// accepted → superseded, together with superseded_by. Proposed decisions can still be edited.
+const FROZEN_FIELDS = ['title', 'context', 'decision', 'consequences', 'nodes', 'areas', 'step'];
+function closedDecisionChanges(oldM, newM) {
+  // Apply only ever compares two versions of the same map (same id), so renaming `system` can't bypass this check.
+  const out = [], next = new Map((newM.decisions || []).map(d => [d.id, d]));
+  const dates = d => ({ proposed: d.proposed || null, decided: d.decided || null });
+  (oldM.decisions || []).forEach(o => {
+    if (o.status === 'proposed') return;
+    const n = next.get(o.id);
+    if (!n) { out.push(`${o.id} was deleted. Closed decisions stay in the history.`); return; }
+    const a = dates(o), b = dates(n);
+    const changed = FROZEN_FIELDS.filter(k => JSON.stringify(o[k] ?? null) !== JSON.stringify(n[k] ?? null))
+      .concat(['proposed', 'decided'].filter(k => a[k] !== b[k]));
+    if (changed.length) out.push(`${o.id} (${o.status}): ${changed.join(', ')} changed.`);
+    if (n.status !== o.status && !(o.status === 'accepted' && n.status === 'superseded')) out.push(`${o.id} went from ${o.status} to ${n.status}. Only accepted → superseded is allowed.`);
+    if (o.superseded_by && n.superseded_by !== o.superseded_by) out.push(`${o.id}: superseded_by changed.`);
+  });
+  return out;
+}
+const msgHTML = msg => msg ? `<div class="issue"><span class="lv lv-${msg.level}">${msg.level === 'ok' ? 'OK' : 'ERROR'}</span><span>${esc(msg.text)}</span></div>` : '';
+function adrHTML(d) {
+  const supersedes = (model.decisions || []).filter(x => x.superseded_by === d.id);
+  const step = d.step && stepById(d.step);
+  const inside = (d.nodes || []).filter(n => parentOf(n));
+  const rej = d.status === 'rejected';
+  return `<div><div class="eyebrow">DECISION · ${esc(d.id)} ${statusPill(d.status)}${d.status === 'proposed' ? '<button class="btn edit-btn" data-edit="adr">Edit</button>' : ''}</div><h2>${esc(d.title)}</h2></div>
+    ${lifeHTML(d)}
+    <div class="adr-body">
+      <div><h4>Context</h4><p>${esc(d.context)}</p></div>
+      <div><h4>${rej ? 'What was proposed' : 'Decision'}</h4><p>${esc(d.decision)}</p></div>
+      <div><h4>${rej ? 'Why it was rejected' : 'Consequences'}</h4><p>${esc(d.consequences)}</p></div>
+    </div>
+    ${supersedes.length ? `<p class="muted">Replaces ${supersedes.map(x => `<button class="link" data-adr="${esc(x.id)}">${esc(x.id)}</button>`).join(', ')}.</p>` : ''}
+    ${(d.areas || []).length ? `<section><h3>Areas</h3><div class="chips">${d.areas.map(id => `<button class="nchip" data-area="${esc(id)}">${esc((areaById(id) || {}).name || id)}</button>`).join('')}</div><p class="muted" style="margin-top:8px;font-size:12px">The map keeps ${d.areas.length > 1 ? 'their' : 'its'} members bright while this decision is selected.</p></section>` : ''}
+    <section><h3>Components</h3>${(d.nodes || []).length ? `<div class="chips">${d.nodes.map(nchip).join('')}</div>${inside.length ? `<p class="muted" style="margin-top:8px;font-size:12px">${inside.length} of these are inside a component. Zoom in to see them.</p>` : ''}` : `<p class="muted">${(d.areas || []).length ? 'None directly; it applies to the areas above.' : 'No components linked.'}</p>`}</section>
+    ${step ? `<section><h3>Project step</h3><button class="item" data-goto-step="${esc(step.id)}"><span class="main"><span class="t">${esc(step.id)} · ${esc(step.title)}</span><span class="s">${esc(projectOf(step).name)}</span></span>${statusPill(step.status)}</button></section>` : ''}`;
+}
+/* ---------- inline editing in the inspector ----------
+   Position is edited on the canvas (drag); everything else here. An edit always changes the element's
+   definition: the base map, or the project step that adds it. Ids never change. */
+function findDef(type, id) {
+  if (type === 'adr') { const d = (model.decisions || []).find(x => x.id === id); return d && d.status === 'proposed' ? { obj: d } : null; }
+  if (type === 'area') { const a = areaById(id); return a ? { obj: a } : null; }
+  const key = type === 'node' ? 'nodes' : 'edges', p = parentOf(id);
+  const scoped = (pid, x) => String(x).includes('/') ? x : pid + '/' + x;
+  if (!p) { const o = (model[key] || []).find(x => x.id === id); if (o) return { obj: o }; }
+  else {
+    const P = (model.nodes || []).find(x => x.id === p);
+    const o = P && P.children && (P.children[key] || []).find(x => scoped(p, x.id) === id);
+    if (o) return { obj: o };
+  }
+  for (const s of allSteps()) {
+    const o = ((s.changes || {})['add_' + key] || []).find(x => x.id === id);
+    if (o) return { obj: o, step: s };
+  }
+  return null;
+}
+const KIND_HINTS = { node: ['person', 'frontend', 'service', 'database', 'worker', 'external', 'adapter-in', 'use case', 'domain', 'port-out', 'adapter-out'], edge: ['calls', 'uses', 'reads', 'writes', 'reads-writes', 'implemented-by', 'notifies', 'deploys-to'] };
+function editHTML() {
+  const ed = state.editing, def = findDef(ed.type, ed.id);
+  if (!def) return '<p class="muted">This can no longer be edited here.</p>';
+  const o = def.obj;
+  const input = (f, label, val, o2 = {}) => `<label class="ef"><span>${label}</span><input class="field" data-f="${f}" value="${esc(val || '')}"${o2.list ? ` list="${o2.list}"` : ''} maxlength="${o2.max || 200}" autocomplete="off" spellcheck="${o2.spell ? 'true' : 'false'}">${o2.hint ? `<small>${o2.hint}</small>` : ''}</label>`;
+  const area = (f, label, val, rows = 3) => `<label class="ef"><span>${label}</span><textarea class="field" data-f="${f}" rows="${rows}">${esc(val || '')}</textarea></label>`;
+  const mods = allSteps().filter(s => ((s.changes || {}).modify || []).some(m => m.node === ed.id || m.edge === ed.id));
+  const notes = (def.step ? `<div class="note">Planned. It's added in step <b>${esc(def.step.id)}</b> of ${esc(projectOf(def.step).name)}, ${esc(def.step.title)}; edits change that step.</div>` : '')
+    + (mods.length ? `<div class="note">Step${mods.length > 1 ? 's' : ''} ${mods.map(s => '<b>' + esc(s.id) + '</b>').join(', ')} change${mods.length > 1 ? '' : 's'} some of these values later. Here you edit the values before ${mods.length > 1 ? 'those steps' : 'that step'}.</div>` : '');
+  const head = (label, title) => `<div class="edit-head"><div><div class="eyebrow">EDITING · ${esc(label)}</div><h2>${esc(title)}</h2></div><button class="btn primary" data-edit-done="1">Done</button></div>`;
+  let body = '';
+  if (ed.type === 'node') {
+    const props = Object.entries(o.props || {});
+    body = head(ed.id, o.name)
+      + input('name', 'Name', o.name, { max: 60, spell: true, hint: 'The map shows up to 19 characters.' })
+      + `<div class="ef-row">${input('kind', 'Kind', o.kind, { list: 'kinds-node', max: 40 })}
+         <label class="ef"><span>Icon</span><span class="icon-pick"><svg width="22" height="22" viewBox="0 0 24 24" class="n-icon" aria-hidden="true">${ICONS[o.icon] || ICONS[o.kind] || ICONS.external}</svg><select class="field" data-f="icon"><option value="">Match the kind</option>${Object.keys(ICONS).map(k => `<option value="${k}"${o.icon === k ? ' selected' : ''}>${k}</option>`).join('')}</select></span></label></div>`
+      + input('tech', 'Technology', o.tech, { max: 80, hint: 'The map shows up to 26 characters.' })
+      + area('desc', 'Description', o.desc, 4)
+      + `<div class="ef"><span>Properties</span><div class="props-ed" id="props-ed">${props.map(([k, v], i) => propRow(i, k, v)).join('')}</div><button class="btn" data-prop-add="1" style="align-self:flex-start">Add property</button></div>`;
+  } else if (ed.type === 'edge') {
+    body = head(ed.id, `${nname(o.from && parentOf(ed.id) && !String(o.from).includes('/') ? parentOf(ed.id) + '/' + o.from : o.from)} → ${nname(o.to && parentOf(ed.id) && !String(o.to).includes('/') ? parentOf(ed.id) + '/' + o.to : o.to)}`)
+      + input('label', 'Label', o.label, { max: 60, spell: true, hint: 'Shown on the line. A few words.' })
+      + input('kind', 'Kind', o.kind, { list: 'kinds-edge', max: 40, hint: 'calls, uses, reads, writes, reads-writes and implemented-by count as dependencies.' });
+  } else if (ed.type === 'area') {
+    const all = allNodeIds().filter(id => !parentOf(id)), ms = new Set(o.members || []);
+    body = head(ed.id, o.name || ed.id)
+      + input('name', 'Name', o.name, { max: 60, spell: true })
+      + input('kind', 'Kind', o.kind, { list: 'kinds-area', max: 40, hint: 'What the area means: a team, a deployment, a compliance scope…' })
+      + area('desc', 'Description', o.desc, 3)
+      + `<fieldset class="ef members"><legend>Members</legend>${all.map(id => `<label class="mem"><input type="checkbox" data-member="${esc(id)}"${ms.has(id) ? ' checked' : ''}> ${esc(nname(id))}${S.current.nodes.has(id) ? '' : ' <span class="muted">(planned)</span>'}</label>`).join('')}</fieldset>`;
+  } else {
+    body = head(ed.id, o.title)
+      + input('title', 'Title', o.title, { max: 120, spell: true })
+      + area('context', 'Context', o.context, 3) + area('decision', 'Decision', o.decision, 3) + area('consequences', 'Consequences', o.consequences, 3)
+      + '<p class="muted" style="font-size:12px">Only proposed decisions can be edited. Once accepted or rejected, this text is locked.</p>';
+  }
+  return `<div class="edit-form">${body}${notes}<p class="muted edit-msg" id="edit-msg" aria-live="polite">Changes save as you leave each field.</p>
+    <datalist id="kinds-node">${KIND_HINTS.node.map(k => `<option value="${k}">`).join('')}</datalist>
+    <datalist id="kinds-edge">${KIND_HINTS.edge.map(k => `<option value="${k}">`).join('')}</datalist>
+    <datalist id="kinds-area">${['team', 'deployment', 'network', 'compliance', 'domain', 'product'].map(k => `<option value="${k}">`).join('')}</datalist></div>`;
+}
+const propRow = (i, k, v) => `<div class="prow"><input class="field" data-pk="${i}" value="${esc(k)}" placeholder="name" aria-label="Property name" autocomplete="off"><input class="field" data-pv="${i}" value="${esc(v)}" placeholder="value" aria-label="Property value" autocomplete="off"><button class="btn icon" data-prop-del="${i}" aria-label="Remove property ${esc(k)}">×</button></div>`;
+const REQUIRED = new Set(['name', 'kind', 'title']);
+function commitField(f, value) {
+  const ed = state.editing, def = ed && findDef(ed.type, ed.id);
+  if (!def) return;
+  const o = def.obj, v = value.trim();
+  if (REQUIRED.has(f) && !v) { renderPanel(); editMsg(`${f[0].toUpperCase() + f.slice(1)} can't be empty, so the old value was kept.`, true); return; }
+  if ((o[f] || '') === v) return;
+  const before = snap(`edit ${f} of ${edLabel(ed)}`);
+  if (v) o[f] = v; else delete o[f];
+  record(before);
+  afterEdit(f === 'icon');
+}
+function commitProps() {
+  const ed = state.editing, def = ed && findDef(ed.type, ed.id);
+  if (!def) return;
+  const props = {};
+  $('pane').querySelectorAll('.prow').forEach(r => { const k = r.querySelector('[data-pk]').value.trim(), v = r.querySelector('[data-pv]').value.trim(); if (k) props[k] = v; });
+  if (JSON.stringify(props) === JSON.stringify(def.obj.props || {})) return;
+  const before = snap(`edit properties of ${edLabel(ed)}`);
+  if (Object.keys(props).length) def.obj.props = props; else delete def.obj.props;
+  record(before);
+  afterEdit(false);
+}
+function afterEdit(rerenderPanel) {
+  recompute(); persist(); renderAll(false);
+  if (rerenderPanel) renderPanel();
+  editMsg('Saved in this browser.');
+}
+function editMsg(text, warn) { const m = $('edit-msg'); if (m) { m.textContent = text; m.style.color = warn ? 'var(--mod)' : ''; } }
+$('pane').addEventListener('change', e => {
+  if (!state.editing) return;
+  const t = e.target;
+  if (t.dataset.member !== undefined) {
+    const def = findDef('area', state.editing.id); if (!def) return;
+    const before = snap(`edit members of ${edLabel(state.editing)}`);
+    def.obj.members = [...$('pane').querySelectorAll('[data-member]')].filter(c => c.checked).map(c => c.dataset.member);
+    record(before);
+    afterEdit(false);
+  }
+  else if (t.dataset.f) commitField(t.dataset.f, t.value);
+  else if (t.dataset.pk !== undefined || t.dataset.pv !== undefined) commitProps();
+});
+$('pane').addEventListener('keydown', e => {
+  if (!state.editing || e.key !== 'Escape') return;
+  e.preventDefault(); e.stopPropagation();
+  if (e.target.blur) e.target.blur();   // commits the field first
+  state.editing = null; renderPanel();
+});
+function areaHTML(a) {
+  const ms = a.members || [], r = areaRects().find(x => x.a === a), strangers = r ? strangersIn(r) : [];
+  const planned = ms.filter(id => !S.current.nodes.has(id) && S.target.nodes.has(id));
+  const ids = new Set(ms), inside = [...S.current.edges.values()].filter(e => ids.has(e.from) && ids.has(e.to)).length;
+  const crossing = [...S.current.edges.values()].filter(e => !parentOf(e.id) && ids.has(e.from) !== ids.has(e.to));
+  const ads = adrsForArea(a.id);
+  const decisionsHTML = `<section><h3>Decisions</h3>${ads.length ? `<ul class="list">${ads.map(d => `<li><button class="item" data-adr="${esc(d.id)}"><span class="main"><span class="t">${esc(d.id)} · ${esc(d.title)}</span><span class="s">${adrWhen(d)}</span></span>${statusPill(d.status)}</button></li>`).join('')}</ul>` : '<p class="muted">No decisions recorded for this area.</p>'}</section>`;
+  return `<div><div class="eyebrow">${esc(String(a.kind || 'area').toUpperCase())} · AREA<button class="btn edit-btn" data-edit="area">Edit</button></div><h2>${esc(a.name || a.id)}</h2></div>
+    ${a.desc ? `<p>${esc(a.desc)}</p>` : ''}
+    <section><h3>Members · ${ms.length}</h3>${ms.length ? `<div class="chips">${ms.map(nchip).join('')}</div>` : '<p class="muted">No members yet. Edit the area to add some.</p>'}
+      ${planned.length ? `<p class="muted" style="margin-top:8px;font-size:12px">${planned.map(nname).map(esc).join(', ')} ${planned.length > 1 ? 'are' : 'is'} planned. Switch to Current → Target to see ${planned.length > 1 ? 'them' : 'it'} in the area.</p>` : ''}</section>
+    <section><h3>Boundary</h3><p class="muted">${plural(inside, 'connection')} inside, ${plural(crossing.length, 'connection')} crossing the boundary.</p>
+      ${crossing.length ? `<ul class="list" style="margin-top:8px">${crossing.map(e => `<li><button class="item" data-edge="${esc(e.id)}"><span class="main"><span class="t">${ids.has(e.from) ? '→ ' + esc(nname(e.to)) : '← ' + esc(nname(e.from))}</span><span class="s">${esc(e.kind)} · ${esc(e.label || '')}</span></span></button></li>`).join('')}</ul>` : ''}</section>
+    ${strangers.length ? `<div class="note">On the map, ${strangers.map(id => '<b>' + esc(nname(id)) + '</b>').join(', ')} ${strangers.length > 1 ? 'sit' : 'sits'} inside this area without being ${strangers.length > 1 ? 'members' : 'a member'}. Move ${strangers.length > 1 ? 'them' : 'it'} out, or add ${strangers.length > 1 ? 'them' : 'it'} to the area.</div>` : ''}
+    ${decisionsHTML}
+    <p class="muted" style="font-size:12px">Drag the area's label to move all its members together.</p>`;
+}
+function inspectHTML() {
+  const sel = state.sel;
+  if (state.editing && sel && state.editing.id === sel.id) return editHTML();
+  if (sel && sel.type === 'area') { const a = areaById(sel.id); if (a) return areaHTML(a); }
+  if (sel && sel.type === 'adr') { const d = (model.decisions || []).find(x => x.id === sel.id); if (d) return adrHTML(d); }
+  if (sel && sel.type === 'node' && VIEW.nodes.has(sel.id)) {
+    const it = VIEW.nodes.get(sel.id), n = it.data, st = stateFor(sel.id);
+    const out = outgoing(st, sel.id), inc = incoming(st, sel.id), adrs = decisionsFor(sel.id), touch = stepsTouching(sel.id);
+    const status = { added: 'New in this view', modified: 'Changed in this view', removed: 'Removed in this view', planned: 'Planned, not built yet', ghost: 'Appears in a later step' }[it.cls];
+    const par = parentOf(sel.id), kids = childrenOf(sel.id);
+    const boundary = [...st.edges.values()].filter(e => e.to_port === sel.id || e.from_port === sel.id);
+    const fieldsTxt = (it.fields || []).map(f => f === 'inside' ? 'components inside' : f).join(', ');
+    return `<div><div class="eyebrow">${esc(String(n.kind).toUpperCase())} · ${par ? 'INSIDE ' + esc(nname(par).toUpperCase()) : esc(n.id)}${findDef('node', sel.id) ? '<button class="btn edit-btn" data-edit="node">Edit</button>' : ''}</div><h2>${esc(n.name)}</h2><p class="muted mono" style="margin-top:4px">${esc(n.tech || '')}</p></div>
+      ${status ? `<div class="note">${esc(status)}${fieldsTxt ? `: <b>${esc(fieldsTxt)}</b>` : ''}</div>` : ''}
+      ${n.desc ? `<p>${esc(n.desc)}</p>` : ''}
+      ${par ? `<section><h3>Part of</h3><div class="chips">${nchip(par)}</div></section>` : ''}
+      ${kids.length ? `<section><h3>Inside · ${kids.length} components</h3><div class="chips" style="margin-bottom:10px">${kids.map(nchip).join('')}</div><button class="btn primary" data-zoom="${esc(sel.id)}">Look inside</button></section>` : ''}
+      ${boundary.length ? `<section><h3>Boundary</h3><ul class="list">${boundary.map(e => `<li><button class="item" data-edge="${esc(e.id)}"><span class="main"><span class="t">${e.to_port === sel.id ? 'Entry point for ' + esc(nname(e.from)) : 'Exit to ' + esc(nname(e.to))}</span><span class="s">${esc(e.kind)} · ${esc(e.label || '')}</span></span></button></li>`).join('')}</ul></section>` : ''}
+      ${n.props ? `<section><h3>Properties</h3>${kv(n.props, it.fields || [])}</section>` : ''}
+      <section><h3>Connections</h3><ul class="list">
+        ${out.map(e => `<li><button class="item" data-edge="${esc(e.id)}"><span class="main"><span class="t">→ ${esc(nname(e.to))}</span><span class="s">${esc(e.kind)} · ${esc(e.label || '')}</span></span></button></li>`).join('')}
+        ${inc.map(e => `<li><button class="item" data-edge="${esc(e.id)}"><span class="main"><span class="t">← ${esc(nname(e.from))}</span><span class="s">${esc(e.kind)} · ${esc(e.label || '')}</span></span></button></li>`).join('') || (out.length ? '' : '<li class="muted">None.</li>')}
+      </ul></section>
+      ${par ? '' : `<section><h3>Areas</h3>${areasOf(sel.id).length ? `<div class="chips">${areasOf(sel.id).map(a => `<button class="nchip" data-area="${esc(a.id)}">${esc(a.name)}</button>`).join('')}</div>` : '<p class="muted">Not in any area.</p>'}</section>`}
+      <section><h3>Decisions</h3>${adrs.length ? `<ul class="list">${adrs.map(d => `<li><button class="item" data-adr="${esc(d.id)}"><span class="main"><span class="t">${esc(d.id)} · ${esc(d.title)}</span><span class="s">${adrWhen(d)}</span></span>${statusPill(d.status)}</button></li>`).join('')}</ul>` : '<p class="muted">No decisions recorded for this component.</p>'}</section>
+      <section><h3>Project steps that touch it</h3>${touchList(touch)}</section>`;
+  }
+  if (sel && sel.type === 'edge' && VIEW.edges.has(sel.id)) {
+    const it = VIEW.edges.get(sel.id), e = it.data, flows = flowsUsing(sel.id), touch = stepsTouching(sel.id);
+    return `<div><div class="eyebrow">CONNECTION · ${esc(e.id)}${findDef('edge', sel.id) ? '<button class="btn edit-btn" data-edit="edge">Edit</button>' : ''}</div><h2>${esc(nname(e.from))} → ${esc(nname(e.to))}</h2></div>
+      <dl class="kv"><dt>kind</dt><dd>${esc(e.kind)}</dd><dt>label</dt><dd class="${(it.fields || []).includes('label') ? 'chg' : ''}">${esc(e.label || '')}</dd><dt>from</dt><dd>${nchip(e.from)}</dd><dt>to</dt><dd>${nchip(e.to)}</dd>${e.from_port ? `<dt>leaves from</dt><dd>${nchip(e.from_port)}</dd>` : ''}${e.to_port ? `<dt>lands on</dt><dd>${nchip(e.to_port)}</dd>` : ''}</dl>
+      <section><h3>Flows using it</h3>${flows.length ? `<div class="chips">${flows.map(f => `<button class="nchip" data-overlay="flow:${esc(f.id)}">${esc(f.name)}</button>`).join('')}</div>` : '<p class="muted">Not part of any flow.</p>'}</section>
+      <section><h3>Project steps that touch it</h3>${touchList(touch)}</section>`;
+  }
+  if (state.mode === 'project') return stepDetail(state.step);
+  return overview();
+}
+/* ---------- floating search (Ctrl/⌘+F) ---------- */
+const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+const FIND_KEY = IS_MAC ? '⌘F' : 'Ctrl+F';
+const ASK_SUGG = ['What breaks if the database goes down?', 'What does CreateTask depend on?', 'What is inside AWS sa-east-1?', 'Which decisions affect AWS sa-east-1?', 'Which team owns Todo API?', 'What depends on Todo API?', 'Which decisions affect Todo DB?', 'Which steps change the API?', 'What is left in the project?'];
+const isAsk = () => state.query.trimStart().startsWith('?');
+const askText = () => state.query.trim().replace(/^\?\s*/, '');
+// Ask mode: a leading "?" turns the search bar into questions answered by graph queries over the model.
+function renderAsk() {
+  const box = $('finder-results'), qq = askText(), a = state.askResult;
+  $('fcount').textContent = 'Ask';
+  let html = '';
+  if (a && a.q === qq) html += `<div class="answer"><span class="q">${esc(a.query)}</span>${a.html}</div>`;
+  else if (qq) html += `<div class="finder-hint"><span>Press <span class="kbd">Enter</span> to ask. Answers come from graph queries over the model, not guesses.</span></div>`;
+  html += `<section><h3>${a && a.q === qq ? 'Ask something else' : 'Try asking'}</h3>${ASK_SUGG.map((s, i) => `<button class="fr" role="option" data-fi="${i}" data-ask="${esc(s)}"><span class="t">${esc(s)}</span></button>`).join('')}</section>`;
+  box.innerHTML = html;
+  markActive(false);
+}
+function runAsk(text) {
+  state.query = '? ' + text; $('q').value = state.query;
+  state.askResult = { q: text, ...answer(text) };
+  state.findIdx = -1; renderFinder();
+  const q = $('q'); q.focus(); q.setSelectionRange(q.value.length, q.value.length);
+}
+function renderFinder() {
+  const q = state.query, box = $('finder-results'), count = $('fcount');
+  if (isAsk()) return renderAsk();
+  if (!q.trim()) {
+    count.textContent = '';
+    box.innerHTML = `<div class="finder-hint"><span>Try <b>due_date</b>, <b>CreateTask</b> or <b>SES</b>. Searches inside components too.</span></div>
+      <div class="finder-hint"><span>Type <b>ADR</b> for every decision in order, with its dates. Add a word to narrow it: <b>ADR proposed</b>, <b>ADR cache</b>.</span></div>
+      <div class="finder-hint"><span>Start with <span class="kbd">?</span> to ask a question, like <b>? what breaks if the database goes down</b>.</span></div>
+      <div class="finder-hint"><span><span class="kbd">↑</span> <span class="kbd">↓</span> move</span><span><span class="kbd">Enter</span> open</span><span><span class="kbd">Esc</span> close</span><span><span class="kbd">${FIND_KEY}</span> again for the browser's find</span></div>`;
+    return;
+  }
+  const hits = searchAll(q);
+  count.textContent = hits.length === 1 ? '1 match' : `${hits.length} matches`;
+  if (!hits.length) { box.innerHTML = `<div class="finder-hint">Nothing matches "${esc(q)}". Try a shorter word or an id like <span class="mono">db</span>.</div>`; return; }
+  const groups = [['node', 'Components'], ['area', 'Areas'], ['edge', 'Connections'], ['adr', 'Decisions'], ['step', 'Project steps'], ['flowstep', 'Flow steps']];
+  const attr = h => h.type === 'area' ? `data-area="${esc(h.id)}"` : h.type === 'node' ? `data-node="${esc(h.id)}"` : h.type === 'edge' ? `data-edge="${esc(h.id)}"` : h.type === 'adr' ? `data-adr="${esc(h.id)}"` : h.type === 'step' ? `data-goto-step="${esc(h.id)}"` : `data-overlay="flow:${esc(h.flow)}"`;
+  // When the match isn't in the title or subtitle, show the words around it so the result explains itself.
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const snip = h => {
+    const shown = (h.title + ' ' + h.sub).toLowerCase(), miss = words.find(w => !shown.includes(w));
+    if (!miss) return '';
+    const t = h.text.replace(/\s+/g, ' '), at = t.toLowerCase().indexOf(miss);
+    if (at < 0) return '';
+    const s = Math.max(0, at - 32), e = Math.min(t.length, at + miss.length + 40);
+    return `<span class="s">${s ? '…' : ''}${hl(t.slice(s, e).trim(), q)}${e < t.length ? '…' : ''}</span>`;
+  };
+  let i = 0;
+  box.innerHTML = groups.map(([t, label]) => {
+    const g = hits.filter(h => h.type === t);
+    if (t === 'adr') g.sort((a, b) => natural(a.id, b.id));   // ADR-2 before ADR-10
+    return g.length ? `<section><h3>${label} · ${g.length}</h3>${g.map(h => `<button class="fr" role="option" data-fi="${i++}" ${attr(h)}><span class="t">${hl(h.title, q)}</span><span class="s">${hl(h.sub, q)}</span>${snip(h)}</button>`).join('')}</section>` : '';
+  }).join('');
+  state.findIdx = Math.min(state.findIdx, i - 1);
+  markActive(false);
+}
+function markActive(scroll) {
+  const items = $('finder-results').querySelectorAll('.fr');
+  items.forEach(b => b.setAttribute('aria-selected', String(+b.dataset.fi === state.findIdx)));
+  const cur = items[state.findIdx];
+  if (cur && scroll) cur.scrollIntoView({ block: 'nearest' });
+}
+function openFinder(prefill) {
+  state.findOpen = true;
+  if (prefill !== undefined) { state.query = prefill; state.findIdx = 0; }
+  $('finder').hidden = false;
+  document.querySelector('.stage').classList.add('finding');
+  const q = $('q'); q.value = state.query;
+  renderFinder(); renderAll(false);
+  q.focus();
+  if (prefill !== undefined) q.setSelectionRange(q.value.length, q.value.length); else q.select();
+}
+function closeFinder(redraw) {
+  if (!state.findOpen) return;
+  state.findOpen = false;
+  $('finder').hidden = true;
+  document.querySelector('.stage').classList.remove('finding');
+  if (redraw) renderAll(false);
+}
+$('q').addEventListener('input', () => { state.query = $('q').value; state.findIdx = isAsk() && askText() ? -1 : 0; renderFinder(); renderAll(false); });
+$('q').addEventListener('keydown', e => {
+  const n = $('finder-results').querySelectorAll('.fr').length;
+  if (e.key === 'Escape') { e.preventDefault(); closeFinder(true); return; }
+  if (e.key === 'Enter' && isAsk() && state.findIdx < 0) { e.preventDefault(); if (askText()) runAsk(askText()); return; }
+  if (!n) return;
+  if (e.key === 'ArrowDown') { e.preventDefault(); state.findIdx = (state.findIdx + 1) % n; markActive(true); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); state.findIdx = (state.findIdx - 1 + n) % n; markActive(true); }
+  else if (e.key === 'Enter') { e.preventDefault(); const b = $('finder-results').querySelector(`.fr[data-fi="${state.findIdx}"]`); if (b) b.click(); }
+});
+$('z-find').onclick = () => state.findOpen ? closeFinder(true) : openFinder();
+// Clicking anywhere outside the search closes it; a click on the map still selects what it hits.
+document.addEventListener('pointerdown', e => {
+  if (state.findOpen && !e.target.closest('#finder, #z-find')) { closeFinder(false); setTimeout(() => renderAll(false), 0); }
+}, true);
+function selectAdr(id) {
+  const d = (model.decisions || []).find(x => x.id === id);
+  if (!d) return;
+  if (state.mode === 'architecture' && (d.nodes || []).some(n => !S.current.nodes.has(n))) state.overlay = 'target';
+  select({ type: 'adr', id });
+}
+function modelHTML() {
+  return `<div><h2>Source of truth</h2><p class="muted" style="margin-top:4px">Edit the text and apply it. In the real tool these files live in git, which is where the weekly diff comes from.</p></div>
+    <div class="src-grid">
+      <section><label for="ta-model"><h3>model.json</h3></label><textarea id="ta-model" class="field" spellcheck="false">${esc(JSON.stringify(model, null, 2))}</textarea></section>
+      <section><label for="ta-layout"><h3>layout.json · positions</h3></label><textarea id="ta-layout" class="field" spellcheck="false">${esc(fmtLayout(layout))}</textarea><p class="muted" style="font-size:12px;margin-top:6px">Ids like api/task use their component's own 960-wide grid.</p></section>
+    </div>
+    <div class="row-btns"><button class="btn primary" id="apply">Apply changes</button><label class="btn" for="import-file" tabindex="0" id="import-label">Import files…</label><input type="file" id="import-file" accept=".json,.md,.txt,application/json,text/markdown,text/plain" multiple hidden><button class="btn" id="copy-model">Copy for an agent</button></div>
+    <p class="muted" id="copy-model-status" aria-live="polite">Paste, import or drop an agent's model.json, or its whole reply as a .md file. Leave layout.json as it is: new components are placed for you.</p>
+    <textarea id="model-fallback" class="field" readonly hidden aria-label="Model and layout to copy"></textarea>
+    <div id="apply-msg" aria-live="polite">${msgHTML(state.msg)}</div>
+    <section><h3>Model check</h3>${issuesHTML(false)}</section>`;
+}
+function findNodeIn(q) {
+  const l = q.toLowerCase(), all = allNodeIds().map(anyNode).sort((a, b) => b.name.length - a.name.length);
+  let hit = all.find(n => l.includes(n.name.toLowerCase()));
+  if (!hit) hit = all.find(n => new RegExp('\\b' + n.id + '\\b').test(l));
+  if (!hit) hit = all.find(n => l.includes(n.kind) || (n.kind === 'database' && /\bdatabase\b/.test(l)) || (n.kind === 'service' && /\bapi\b/.test(l)) || (n.kind === 'frontend' && /\b(ui|frontend|web)\b/.test(l)));
+  if (!hit) hit = all.find(n => n.name.toLowerCase().split(/\s+/).some(w => w.length > 3 && w !== 'todo' && l.includes(w)));
+  return hit;
+}
+function answer(q) {
+  const l = q.toLowerCase();
+  // Areas: "what's inside AWS sa-east-1?", "which areas is Todo API in?"
+  const ar = areas().slice().sort((a, b) => (b.name || '').length - (a.name || '').length).find(a => a.name && l.includes(a.name.toLowerCase()));
+  if (ar && /(decision|adr|why|decided)/.test(l)) {
+    const ds = adrsForArea(ar.id);
+    return { query: `decisionsForArea("${ar.id}")`, html: ds.length ? `<ul>${ds.map(d => `<li><button class="link" data-adr="${esc(d.id)}">${esc(d.id)}</button> ${esc(d.title)} · ${esc(d.status)}</li>`).join('')}</ul>` : `<p>No decisions are linked to ${esc(ar.name)}.</p>` };
+  }
+  if (ar && /(inside|in it|members|contain|part of|what'?s in|what is in|who)/.test(l)) {
+    const ms = ar.members || [];
+    return { query: `areaMembers("${ar.id}")`, html: ms.length ? `<p><button class="link" data-area="${esc(ar.id)}">${esc(ar.name)}</button> (${esc(ar.kind || 'area')}) contains:</p><ul>${ms.map(id => `<li>${nchip(id)}${S.current.nodes.has(id) ? '' : ' <span class="muted">planned</span>'}</li>`).join('')}</ul>` : `<p>${esc(ar.name)} has no members.</p>` };
+  }
+  const n = findNodeIn(q);
+  if (n && /\barea|\bteam|\bowns?\b|deploy|where (is|does)/.test(l)) {
+    const as = areasOf(n.id);
+    return { query: `areasOf("${n.id}")`, html: as.length ? `<p>${nchip(n.id)} is in:</p><ul>${as.map(a => `<li><button class="link" data-area="${esc(a.id)}">${esc(a.name)}</button> · ${esc(a.kind || 'area')}</li>`).join('')}</ul>` : `<p>${nchip(n.id)} isn't in any area.</p>` };
+  }
+  const planned = n && !S.current.nodes.has(n.id) ? ' (planned, not built yet)' : '';
+  if (/(left|remaining|status|progress|how far)/.test(l) && !n || /project/.test(l) && !n) {
+    if (!projects().length) return { query: 'projectStatus()', html: '<p>This map has no projects.</p>' };
+    return { query: 'projectStatus(all)', html: projects().map(p => { const st = p.steps || [];
+      return `<p><b>${esc(p.name)}</b>: ${st.filter(isDone).length} of ${st.length} steps done.</p><ul>${st.filter(s => !isDone(s)).map(s => `<li><button class="link" data-goto-step="${esc(s.id)}">${esc(s.id)}</button> ${esc(s.title)} · ${esc(s.status.replace('_', ' '))}${s.depends_on && s.depends_on.length ? `, after ${s.depends_on.map(stepRef).join(', ')}` : ''}</li>`).join('')}</ul>`; }).join('') };
+  }
+  if (!n) {
+    const hits = searchAll(q.replace(/[?]/g, '').split(/\s+/).filter(w => w.length > 3).slice(-1)[0] || q);
+    return { query: `search("${q}")`, html: hits.length ? `<p>I couldn't match a component, but search found:</p><ul>${hits.slice(0, 5).map(h => `<li>${esc(h.title)}</li>`).join('')}</ul>` : `<p>I couldn't match a component in that question. Name one, for example Todo DB, Todo API or Reminder Worker.</p>` };
+  }
+  if (/(break|down|outage|fail|offline)/.test(l)) {
+    const imp = impactOf(n.id);
+    return { query: `impactOf("${n.id}")`, html: imp.length ? `<p>If ${nchip(n.id)}${planned} goes down, these stop working:</p><ul>${imp.map(x => `<li>${nchip(x.id)}${where(x.id)} · ${x.via ? `through ${esc(nname(x.via))}` : 'directly'}</li>`).join('')}</ul>` : `<p>Nothing depends on ${nchip(n.id)}${planned}.</p>` };
+  }
+  if (/(decision|adr|why)/.test(l)) {
+    const ds = decisionsFor(n.id);
+    return { query: `decisionsFor("${n.id}")`, html: ds.length ? `<ul>${ds.map(d => `<li><button class="link" data-adr="${esc(d.id)}">${esc(d.id)}</button> ${esc(d.title)} · ${esc(d.status)}</li>`).join('')}</ul>` : `<p>No decisions are linked to ${nchip(n.id)}.</p>` };
+  }
+  if (/(change|touch|affect|step|plan)/.test(l)) {
+    const t = stepsTouching(n.id);
+    return { query: `stepsTouching("${n.id}")`, html: t.length ? `<ul>${t.map(({ s }) => `<li><button class="link" data-goto-step="${esc(s.id)}">${esc(s.id)}</button> ${esc(s.title)} · ${esc(s.status.replace('_', ' '))}</li>`).join('')}</ul>` : `<p>No project step changes ${nchip(n.id)}.</p>` };
+  }
+  const st = stateFor(n.id);
+  if (/(what|who|which)\b.*\b(depends? on|uses|calls|reads)\b/.test(l) && !new RegExp(n.name.toLowerCase() + '.*depend').test(l)) {
+    const inc = incoming(st, n.id);
+    return { query: `dependentsOf("${n.id}")`, html: inc.length ? `<ul>${inc.map(e => `<li>${nchip(e.from)} ${esc(e.kind)} it (${esc(e.label || '')})</li>`).join('')}</ul>` : `<p>Nothing points to ${nchip(n.id)}.</p>` };
+  }
+  if (/depend/.test(l)) {
+    const out = outgoing(st, n.id);
+    return { query: `dependenciesOf("${n.id}")`, html: out.length ? `<ul>${out.map(e => `<li>${esc(e.kind)} ${nchip(e.to)} (${esc(e.label || '')})</li>`).join('')}</ul>` : `<p>${nchip(n.id)} has no outgoing connections.</p>` };
+  }
+  return { query: `describe("${n.id}")`, html: `<p>${nchip(n.id)}${planned}: ${esc(n.desc || n.tech)}</p><p class="muted">${outgoing(st, n.id).length} outgoing and ${incoming(st, n.id).length} incoming connections, ${decisionsFor(n.id).length} decisions, ${stepsTouching(n.id).length} project steps.</p>` };
+}
+
+const SHEETS = [['model', 'Model'], ['agents', 'For agents']];
+function copyText(text, statusEl, fallbackEl) {
+  const fail = () => { statusEl.textContent = 'Copy was blocked here. Select the text below and copy it.'; if (fallbackEl) { fallbackEl.hidden = false; fallbackEl.value = text; fallbackEl.focus(); fallbackEl.select(); } };
+  try { navigator.clipboard.writeText(text).then(() => { statusEl.textContent = 'Copied.'; if (fallbackEl) fallbackEl.hidden = true; }, fail); } catch (e) { fail(); }
+}
+// The guide is static HTML (readable without JavaScript); this turns it into Markdown for pasting into an agent.
+function guideMarkdown() {
+  const inline = n => [...n.childNodes].map(c => c.nodeType === 3 ? c.textContent : c.tagName === 'CODE' ? '`' + c.textContent + '`' : /^(B|STRONG)$/.test(c.tagName) ? '**' + c.textContent + '**' : c.textContent).join('').replace(/\s+/g, ' ').trim();
+  let out = '';
+  [...$('guide').children].forEach(n => {
+    if (n.hasAttribute('data-no-md')) return;
+    const t = n.tagName;
+    if (t === 'H2') out += '# ' + inline(n) + '\n\n';
+    else if (t === 'H3') out += '## ' + inline(n) + '\n\n';
+    else if (t === 'P' || n.classList.contains('eyebrow')) out += inline(n) + '\n\n';
+    else if (t === 'UL' || t === 'OL') out += [...n.children].map((li, i) => (t === 'OL' ? (i + 1) + '. ' : '- ') + inline(li)).join('\n') + '\n\n';
+    else if (t === 'PRE') out += '```json\n' + n.textContent.trim() + '\n```\n\n';
+  });
+  return out.trim() + '\n';
+}
+// The right panel only shows details of what is selected (or an overview when nothing is).
+function renderPanel() {
+  $('model-count').textContent = ISSUES.length ? ISSUES.length : '';
+  $('pane').innerHTML = inspectHTML();
+  $('pane').scrollTop = 0;
+}
+/* ---------- side sheet: model source and agent guide ---------- */
+let sheetReturn = null;
+function openSheet(which) {
+  if (!state.sheet) sheetReturn = document.activeElement;
+  state.sheet = which; closeFinder(true); renderSheet();
+  const first = which === 'agents' ? $('copy-guide') : $('ta-model');
+  if (first) first.focus({ preventScroll: true });
+}
+function closeSheet() {
+  if (!state.sheet) return;
+  state.sheet = null; renderSheet();
+  if (sheetReturn && sheetReturn.focus) sheetReturn.focus();
+}
+function renderSheet() {
+  const open = !!state.sheet;
+  $('sheet').hidden = !open; $('scrim').hidden = !open;
+  document.querySelectorAll('.tools [data-sheet]').forEach(b => b.setAttribute('aria-pressed', String(state.sheet === b.dataset.sheet)));
+  if (!open) return;
+  $('sheet-tabs').innerHTML = SHEETS.map(([k, l]) => `<button role="tab" aria-selected="${state.sheet === k}" data-sheet="${k}">${l}${k === 'model' && ISSUES.length ? `<span class="count" style="color:var(--mod)">${ISSUES.length}</span>` : ''}</button>`).join('');
+  const pane = $('sheet-pane'), isGuide = state.sheet === 'agents';
+  $('guide').hidden = !isGuide; pane.hidden = isGuide;
+  if (isGuide) return;
+  pane.innerHTML = modelHTML();
+  {
+    $('copy-model').onclick = () => copyText(
+      'Current Wayfinder model:\n```json\n' + JSON.stringify(model, null, 2) + '\n```\n\nCurrent layout (keep these positions unchanged; leave new ids out):\n```json\n' + JSON.stringify(layout) + '\n```\n',
+      $('copy-model-status'), $('model-fallback'));
+    // Errors are written in place so the pasted text stays in the editor for fixing.
+    const fail = text => { $('apply-msg').innerHTML = msgHTML({ level: 'error', text: 'Not applied: ' + text }); };
+    const applyModel = force => {
+      let m, lay;
+      try {
+        m = JSON.parse($('ta-model').value);
+        const lt = $('ta-layout').value.trim(); lay = lt ? JSON.parse(lt) : {};
+        if (!Array.isArray(m.nodes) || !Array.isArray(m.edges) || !Array.isArray(m.projects)) throw new Error('model.json needs "nodes", "edges" and a "projects" array.');
+      } catch (err) { fail(err.message); return; }
+      // The id is the map's identity: a model without one keeps this map's id; a different id is a different map.
+      let inherited = false;
+      if (!m.id) { m.id = model.id; inherited = true; }
+      else if (m.id !== model.id) { fail(`this model belongs to another map (id ${m.id}). Open it from Maps instead, or remove its id to apply it here.`); return; }
+      const broken = closedDecisionChanges(model, m);
+      if (broken.length && !force) {
+        $('apply-msg').innerHTML = `<div class="issue"><span class="lv lv-error">BLOCKED</span><div style="display:flex;flex-direction:column;gap:6px;min-width:0"><span>Not applied. Closed decisions can't be edited:</span><ul style="margin:0;padding-left:18px">${broken.map(x => `<li>${esc(x)}</li>`).join('')}</ul><span>Undo those edits, or add a new decision that supersedes the old one. To fix a genuine mistake, <button class="link" id="apply-force">apply anyway</button>.</span></div></div>`;
+        $('apply-force').onclick = () => applyModel(true);
+        return;
+      }
+      const old = model, oldL = layout, before = snap('apply model changes');
+      model = m; layout = lay; state.step = null;
+      try { recompute(); } catch (err) { model = old; layout = oldL; recompute(); fail(err.message); return; }
+      record(before); persist();
+      state.msg = { level: 'ok', text: 'Applied. Every view now reads the new model.' + (S.autoPlaced ? ` ${S.autoPlaced} component${S.autoPlaced > 1 ? 's were' : ' was'} placed automatically; drag to adjust.` : '') + (broken.length ? ` ${plural(broken.length, 'change')} to closed decisions applied as a correction.` : '') + (inherited ? ' The model had no id, so it kept this map\'s id.' : '') };
+      state.sel = null; render(); renderSheet(); fit(false);
+    };
+    $('apply').onclick = () => applyModel(false);
+  }
+}
+/* ---------- import: file picker or drop anywhere; files load into the editor, Apply still decides ---------- */
+const fmtLayout = l => '{\n' + Object.entries(l || {}).map(([k, v]) => `  ${JSON.stringify(k)}: [${[].concat(v).join(', ')}]`).join(',\n') + '\n}';
+function extractJSON(text) {
+  try { return [JSON.parse(text)]; } catch (e) {}
+  const out = [], re = /```[a-zA-Z]*\s*\n([\s\S]*?)```/g;   // an agent's reply: take its fenced code blocks
+  let m;
+  while ((m = re.exec(text))) { try { out.push(JSON.parse(m[1])); } catch (e) {} }
+  return out;
+}
+function classifyJSON(o) {
+  if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
+  if (o.model && Array.isArray(o.model.nodes)) return 'both';
+  if (Array.isArray(o.nodes)) return 'model';
+  const vals = Object.values(o);
+  if (vals.length && vals.every(v => Array.isArray(v) && v.length === 2 && v.every(n => typeof n === 'number'))) return 'layout';
+  return null;
+}
+async function readMapFiles(files) {
+  let foundModel = null, foundLayout = null;
+  const loaded = [], problems = [];
+  for (const f of files) {
+    let text;
+    try { text = await f.text(); } catch (e) { problems.push(`${f.name}: the file couldn't be read.`); continue; }
+    const chunks = extractJSON(text);
+    if (!chunks.length) { problems.push(`${f.name}: no valid JSON found.`); continue; }
+    let used = false;
+    chunks.forEach(c => {
+      const k = classifyJSON(c);
+      if (k === 'model') { foundModel = c; used = true; }
+      else if (k === 'layout') { foundLayout = c; used = true; }
+      else if (k === 'both') { foundModel = c.model; if (c.layout) foundLayout = c.layout; used = true; }
+    });
+    if (used) loaded.push(f.name); else problems.push(`${f.name}: the JSON isn't a Wayfinder model or layout.`);
+  }
+  return { foundModel, foundLayout, loaded, problems };
+}
+const problemsHTML = problems => problems.map(p => `<div class="issue"><span class="lv lv-error">SKIPPED</span><span>${esc(p)}</span></div>`).join('');
+// Loads files into the Model editor of the open map. Nothing changes until Apply.
+function loadIntoEditor(r, note) {
+  if (state.sheet !== 'model') openSheet('model');
+  if (r.foundModel) $('ta-model').value = JSON.stringify(r.foundModel, null, 2);
+  if (r.foundLayout) $('ta-layout').value = fmtLayout(r.foundLayout);
+  const what = [r.foundModel && 'model.json', r.foundLayout && 'layout.json'].filter(Boolean).join(' and ');
+  $('apply-msg').innerHTML = (what ? `<div class="issue"><span class="lv lv-ok">LOADED</span><span>${note ? esc(note) + ' ' : ''}Loaded ${what} from ${esc(r.loaded.join(', '))}. Review it, then press Apply.${r.foundModel && !r.foundLayout ? ' Your current layout stays, so existing positions are kept.' : ''}</span></div>` : '') + problemsHTML(r.problems);
+}
+async function importFiles(files) {
+  files = [...(files || [])];
+  if (!files.length) return;
+  const r = await readMapFiles(files);
+  if (docId) { loadIntoEditor(r); return; }
+  // On the start screen: a model for a map already in this browser is an update to review; anything else opens as a new map.
+  if (!r.foundModel) { state.startMsg = (r.foundLayout ? '<div class="issue"><span class="lv lv-error">SKIPPED</span><span>A layout alone can\'t open a map. Import it together with its model.</span></div>' : '') + problemsHTML(r.problems); renderStart(); return; }
+  // A map is recognized only by its id. A model without one is a new map.
+  const fid = r.foundModel.id, match = fid ? readIndex().find(x => x.id === fid) : null;
+  if (match) {
+    const doc = loadDoc(match.id);
+    if (doc && openMap(match.id, doc)) { loadIntoEditor(r, `This updates your saved map "${match.name}".`); return; }
+  }
+  if (!createMap(r.foundModel, r.foundLayout || {}, { fromFile: true })) { renderStart(); return; }
+  if (r.problems.length) { state.msg = null; flashStatus(r.problems.join(' ')); }
+}
+document.addEventListener('change', e => { if (e.target.id === 'import-file' || e.target.id === 'start-file') { importFiles(e.target.files); e.target.value = ''; } });
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  if (e.target.id === 'import-label') { e.preventDefault(); $('import-file').click(); }
+  if (e.target.id === 'start-drop-label') { e.preventDefault(); $('start-file').click(); }
+});
+
+/* ---------- map library: each map autosaves to this browser; Save writes a file ---------- */
+const K_INDEX = 'wayfinder.maps.v2', docKey = id => 'wayfinder.v2.map.' + id;
+let storageOK = true, statusFlash = '', statusTimer = 0;
+function readIndex() { try { const v = JSON.parse(localStorage.getItem(K_INDEX)); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+function writeIndex(ix) { try { localStorage.setItem(K_INDEX, JSON.stringify(ix)); return true; } catch (e) { return false; } }
+function loadDoc(id) { try { return JSON.parse(localStorage.getItem(docKey(id))); } catch (e) { return null; } }
+const topCount = st => [...st.nodes.keys()].filter(id => !parentOf(id)).length;
+const isDirty = e => !!e && (!e.savedAt || e.savedAt < e.updatedAt);
+const entry = () => readIndex().find(x => x.id === docId);
+function persist(markSaved) {
+  if (!docId) return;
+  const now = new Date().toISOString(), ix = readIndex();
+  let e = ix.find(x => x.id === docId);
+  if (!e) { e = { id: docId, createdAt: now }; ix.push(e); }
+  Object.assign(e, { name: model.system || 'Untitled map', updatedAt: now, components: topCount(S.current), decisions: (model.decisions || []).length });
+  if (markSaved) e.savedAt = now;
+  try { localStorage.setItem(docKey(docId), JSON.stringify({ model, layout })); storageOK = writeIndex(ix); }
+  catch (err) { storageOK = false; }
+  renderDocBar();
+}
+function ago(iso) {
+  const s = (Date.now() - Date.parse(iso)) / 1000;
+  if (!isFinite(s)) return '';
+  if (s < 60) return 'just now';
+  if (s < 3600) return plural(Math.round(s / 60), 'minute') + ' ago';
+  if (s < 86400) return plural(Math.round(s / 3600), 'hour') + ' ago';
+  if (s < 86400 * 30) return plural(Math.round(s / 86400), 'day') + ' ago';
+  return fmtDay(String(iso).slice(0, 10));
+}
+function saveState(e) {
+  if (!e) return { cls: 'p-nofile', text: 'Not saved to a file' };
+  if (!e.savedAt) return { cls: 'p-nofile', text: 'Not saved to a file' };
+  return isDirty(e) ? { cls: 'p-unsaved', text: 'Unsaved changes' } : { cls: 'p-saved', text: 'Saved to file' };
+}
+function flashStatus(text) { statusFlash = text; clearTimeout(statusTimer); renderDocBar(); statusTimer = setTimeout(() => { statusFlash = ''; renderDocBar(); }, 4000); }
+function renderDocBar() {
+  const open = !!docId, e = open ? entry() : null;
+  $('open-maps').hidden = !open; $('open-model').hidden = !open; $('save-file').hidden = !open; $('modes').hidden = !open;
+  $('save-file').classList.toggle('is-dirty', open && isDirty(e));
+  if (!open) { $('subline').textContent = 'No map open'; return; }
+  const st = !storageOK ? '<span class="st-warn">not stored in this browser; use Save</span>'
+    : statusFlash ? esc(statusFlash)
+    : !e || !e.savedAt ? '<span class="st-unsaved">not saved to a file yet</span>'
+    : isDirty(e) ? '<span class="st-unsaved">unsaved changes</span>' : `<span class="st-saved">saved to file ${ago(e.savedAt)}</span>`;
+  $('subline').innerHTML = `${esc(model.system || 'Untitled map')} · ${st}`;
+}
+function resetView() {
+  Object.assign(state, { mode: 'architecture', overlay: 'none', project: null, step: null, sel: null, tab: 'inspect', query: '', findOpen: false, askResult: null, msg: null });
+}
+function openMap(id, doc) {
+  const oldM = model, oldL = layout, oldId = docId;
+  model = doc.model; layout = doc.layout || {}; docId = id;
+  useHistory(id);
+  statusFlash = ''; clearTimeout(statusTimer);
+  resetView();
+  try { recompute(); } catch (err) {
+    model = oldM; layout = oldL; docId = oldId; recompute();
+    state.startMsg = `<div class="issue"><span class="lv lv-error">ERROR</span><span>That map couldn't be opened: ${esc(err.message)}</span></div>`;
+    return false;
+  }
+  showApp(); render(); renderSheet(); requestAnimationFrame(() => fit(false));
+  return true;
+}
+function createMap(m, lay, opts = {}) {
+  if (!m || !Array.isArray(m.nodes) || !Array.isArray(m.edges) || !Array.isArray(m.projects)) {
+    state.startMsg = '<div class="issue"><span class="lv lv-error">ERROR</span><span>A model needs "nodes", "edges" and a "projects" array.</span></div>';
+    return false;
+  }
+  // A map keeps the id it came with. One without an id gets a new one, which only a new Save puts in a file.
+  const hadId = typeof m.id === 'string' && m.id.trim() !== '';
+  const mm = clone(m);
+  if (!hadId) mm.id = newMapId();
+  if (!openMap(mm.id, { model: mm, layout: clone(lay || {}) })) return false;
+  persist(!!opts.fromFile && hadId);
+  if (opts.fromFile && !hadId) flashStatus('new map id assigned; Save to keep it in the file');
+  return true;
+}
+function newMapId() {
+  try { if (crypto.randomUUID) return 'map-' + crypto.randomUUID(); } catch (e) {}
+  return 'map-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+}
+function showStart() {
+  docId = null; closeSheet(); closeFinder(false);
+  $('start').hidden = false; $('toolbar').hidden = true; $('work').hidden = true;
+  renderDocBar(); renderStart();
+}
+function showApp() {
+  $('start').hidden = true; $('toolbar').hidden = false; $('work').hidden = false;
+  state.startMsg = ''; state.confirmDel = null;
+  renderDocBar();
+}
+function renderStart() {
+  const ix = readIndex().slice().sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+  const row = e => {
+    const s = saveState(e), confirming = state.confirmDel === e.id;
+    return `<li class="maprow">
+      <button class="maprow-open" data-open-map="${esc(e.id)}"><span class="t">${esc(e.name)}</span><span class="s">${plural(e.components || 0, 'component')} · ${plural(e.decisions || 0, 'decision')} · edited ${ago(e.updatedAt)}</span></button>
+      <span class="pill ${s.cls}">${s.text}</span>
+      ${confirming ? `<span class="confirm">${isDirty(e) ? 'It has changes that aren\'t in any file.' : 'Remove it from this browser?'} <button class="btn danger" data-del-yes="${esc(e.id)}">Delete</button><button class="btn" data-del-no="1">Keep</button></span>`
+        : `<button class="btn" data-del-map="${esc(e.id)}" aria-label="Delete ${esc(e.name)} from this browser">Delete</button>`}
+    </li>`;
+  };
+  $('start').innerHTML = `<div class="start-inner">
+    <div class="start-head"><h2>Open a map</h2><p>Wayfinder draws whatever map you give it: architecture, a project, a plan. Maps you open are kept in this browser as you work. <b>Save</b> writes one to a file you can keep, share or hand to an agent.</p></div>
+    <div class="start-actions">
+      <label class="start-drop" for="start-file" tabindex="0" id="start-drop-label"><b>Import a file</b><span>Choose or drop a <code>.wayfinder.json</code> file, a <code>model.json</code> (with its <code>layout.json</code> if you have one), or an agent's reply saved as <code>.md</code>. If it updates a map listed below, you review the changes before they apply.</span></label>
+      <input type="file" id="start-file" accept=".json,.md,.txt,application/json,text/markdown,text/plain" multiple hidden>
+      <button class="start-alt" data-start="example"><b>Explore the example</b><span>A todo app with a deadline project, decisions and a component you can zoom into.</span></button>
+      <button class="start-alt" data-sheet="agents"><b>Create one with an agent</b><span>Give your agent the guide, then import what it returns.</span></button>
+    </div>
+    ${state.startMsg || ''}
+    <section><h3>In this browser · ${ix.length}</h3>
+      ${ix.length ? `<ul class="maps">${ix.map(row).join('')}</ul>` : '<div class="maps empty-maps">No maps yet. Import a file or explore the example to start.</div>'}
+    </section>
+    <p class="start-note">Browser storage can be cleared by the browser or by clearing site data, and it stays on this device. A saved file is the copy to rely on.</p>
+  </div>`;
+}
+// Save: where the browser supports it (Chrome, Edge), the first Save asks where to put the file and
+// later saves overwrite that same file. Elsewhere, each Save downloads the file.
+const fileHandles = new Map();   // map id → file handle, in memory only
+async function saveToFile() {
+  if (!docId) return;
+  const data = JSON.stringify({ format: 'wayfinder', version: '0.3', model, layout }, null, 2) + '\n';
+  const filename = (model.system || 'map').replace(/[^\w.-]+/g, '-') + '.wayfinder.json';
+  if (window.showSaveFilePicker) {
+    try {
+      let h = fileHandles.get(docId);
+      if (!h) h = await window.showSaveFilePicker({ suggestedName: filename, types: [{ description: 'Wayfinder map', accept: { 'application/json': ['.json'] } }] });
+      const w = await h.createWritable(); await w.write(data); await w.close();
+      fileHandles.set(docId, h); persist(true); flashStatus('saved to ' + h.name);
+      return;
+    } catch (e) {
+      if (e && e.name === 'AbortError') { flashStatus('not saved'); return; }
+      fileHandles.delete(docId);   // permission lost or API refused: fall back to a download
+    }
+  }
+  const url = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
+  const link = Object.assign(document.createElement('a'), { href: url, download: filename });
+  document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  persist(true); flashStatus('downloaded ' + filename);
+}
+$('save-file').onclick = saveToFile;
+$('open-maps').onclick = showStart;
+document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 's' && docId) { e.preventDefault(); saveToFile(); } }, true);
+const hasFiles = e => e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
+let dragDepth = 0;
+document.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; $('dropzone').hidden = false; });
+document.addEventListener('dragover', e => { if (hasFiles(e)) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } });
+document.addEventListener('dragleave', e => { if (!hasFiles(e)) return; dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) $('dropzone').hidden = true; });
+document.addEventListener('drop', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth = 0; $('dropzone').hidden = true; importFiles(e.dataTransfer.files); });
+$('sheet-close').onclick = closeSheet;
+$('scrim').onclick = closeSheet;
+
+/* ---------- toolbar, timeline, legend ---------- */
+function renderToolbar() {
+  $('m-arch').setAttribute('aria-pressed', state.mode === 'architecture');
+  $('m-proj').setAttribute('aria-pressed', state.mode === 'project');
+  const tb = $('toolbar');
+  if (state.mode === 'architecture') {
+    const opts = [['none', 'Current', ''], ...(model.flows || []).map(f => ['flow:' + f.id, f.name, 'flow']), ...(projects().length ? [['target', 'Current → Target', projects().length > 1 ? 'all projects' : '']] : []), ['decisions', 'Decisions', ''], ['diff', 'Since baseline', model.baseline || '']];
+    tb.innerHTML = `<span class="tlabel">Overlay</span>` + opts.map(([k, l, s]) => `<button class="chip" aria-pressed="${state.overlay === k}" data-overlay="${esc(k)}">${esc(l)}${s ? `<span class="k">${esc(s)}</span>` : ''}</button>`).join('');
+  } else if (!projects().length) {
+    tb.innerHTML = '<span class="goal">This map has no projects yet.</span>';
+  } else {
+    const n = steps().length;
+    tb.innerHTML = `<span class="tlabel">Project</span>${projects().map(p => { const st = p.steps || []; return `<button class="chip" aria-pressed="${p.id === state.project}" data-project="${esc(p.id)}">${esc(p.name)}<span class="k">${st.filter(isDone).length}/${st.length}</span></button>`; }).join('')}
+      <span class="stepper"><button class="btn" id="prev" ${state.step <= 0 ? 'disabled' : ''} aria-label="Previous step">←</button><span class="mono">${state.step === 0 ? 'Start' : `Step ${state.step} of ${n}`}</span><button class="btn" id="next" ${state.step >= n ? 'disabled' : ''} aria-label="Next step">→</button></span>`;
+    $('prev').onclick = () => goStep(state.step - 1);
+    $('next').onclick = () => goStep(state.step + 1);
+  }
+}
+function renderTimeline() {
+  const tl = $('timeline');
+  tl.hidden = state.mode !== 'project';
+  if (tl.hidden) return;
+  if (!curProject()) { tl.innerHTML = ''; return; }
+  const pre = S.proj.get(state.project).pre;
+  const cards = [`<button class="tl" data-step="0" ${state.step === 0 ? 'aria-current="step"' : ''}><span class="h"><span class="id">${esc(curProject().name)}</span><span class="pill p-done">start</span></span><span class="ti">Before the first step</span><span class="de">${pre.length ? 'waits for ' + esc(pre.map(d => d.id).join(', ')) : 'current map'}</span></button>`];
+  const other = d => { const x = stepById(d); return x && projectOf(x) !== curProject(); };
+  steps().forEach((s, i) => cards.push(`<button class="tl" data-step="${i + 1}" ${state.step === i + 1 ? 'aria-current="step"' : ''}><span class="h"><span class="id">${i + 1} · ${esc(s.id)}</span>${statusPill(s.status)}</span><span class="ti">${esc(s.title)}</span><span class="de">${s.depends_on && s.depends_on.length ? 'after ' + esc(s.depends_on.map(d => other(d) ? d + ' ↗' : d).join(', ')) : 'no dependencies'}${s.done ? ' · ' + esc(fmtDay(s.done)) : s.ticket ? ' · ' + esc(s.ticket) : ''}</span></button>`));
+  tl.innerHTML = cards.join('');
+  const cur = tl.querySelector('[aria-current]');
+  if (cur) { const l = cur.offsetLeft - tl.offsetLeft; if (l < tl.scrollLeft || l + cur.offsetWidth > tl.scrollLeft + tl.clientWidth) tl.scrollLeft = l - 8; }
+}
+function renderLegend() {
+  const L = $('legend'), sw = (c, t) => `<span class="sw"><i style="border-color:var(--${c});background:var(--${c}-soft)"></i>${t}</span>`;
+  let h = '';
+  if (state.mode === 'project') {
+    h = state.step === 0 ? `<span class="t">Baseline</span><div class="row"><span class="sw"><i style="border-color:var(--faint);border-style:dashed"></i>appears in a later step</span></div>`
+      : `<span class="t">Step ${state.step}: ${esc(steps()[state.step - 1].title)}</span><div class="row">${sw('add', 'added')}${sw('mod', 'changed')}${sw('del', 'removed')}<span class="sw"><i style="border-color:var(--faint);border-style:dashed"></i>later</span></div>`;
+  } else if (state.overlay.startsWith('flow:')) {
+    const f = (model.flows || []).find(x => 'flow:' + x.id === state.overlay);
+    h = `<span class="t">Flow · ${esc(f.name)}</span><ol>${f.steps.map(s => `<li>${esc(s.text)}${parentOf(s.edge) ? ` <span class="muted">· inside ${esc(nname(parentOf(s.edge)))}</span>` : ''}</li>`).join('')}</ol>${f.steps.some(s => parentOf(s.edge)) ? '<span>Zoom into the component to follow the inner steps.</span>' : ''}`;
+  } else if (state.overlay === 'target') {
+    h = `<span class="t">Current → Target · ${projects().length > 1 ? 'all ' + projects().length + ' projects' : esc((projects()[0] || {}).name || '')}</span><div class="row"><span class="sw"><i style="border-color:var(--accent);background:var(--accent-soft);border-style:dashed"></i>planned</span>${sw('mod', 'will change')}${sw('del', 'will be removed')}</div>`;
+  } else if (state.overlay === 'decisions') {
+    const ds = model.decisions || [], inForce = ds.filter(d => d.status === 'accepted').length, open = ds.filter(d => d.status === 'proposed').length;
+    h = `<span class="t">Decisions · ${inForce} in force, ${open} open</span><div class="row"><span><i class="dia"></i>number of decisions</span><span><i class="dia open"></i>one still proposed</span><span class="muted">type ADR in search for the full history</span></div>`;
+  } else if (state.overlay === 'diff') {
+    h = `<span class="t">Changed since ${esc(model.baseline || 'last week')}</span><div class="row">${sw('add', 'added')}${sw('mod', 'changed')}${sw('del', 'removed')}<span class="muted">unchanged is dimmed</span></div>`;
+  } else {
+    const top = [...S.current.nodes.keys()].filter(id => !parentOf(id)).length;
+    h = `<span class="t">Current architecture</span><div class="row"><span>${top} components · pick an overlay above${EXPANDABLE.size ? ` · double-click <b>${[...EXPANDABLE].map(id => esc(nname(id))).join(', ')}</b> or zoom in to see inside` : ''}</span></div>`;
+  }
+  L.innerHTML = h;
+}
+
+/* ---------- actions ---------- */
+function select(sel) { if (!state.editing || !sel || state.editing.id !== sel.id) state.editing = null; state.sel = sel; state.tab = 'inspect'; render(); }
+function goStep(i) { state.step = Math.max(0, Math.min(steps().length, i)); state.sel = null; state.tab = 'inspect'; render(); }
+function setMode(m) {
+  state.mode = m; state.sel = null; state.tab = 'inspect';
+  try { history.replaceState(null, '', '#' + m); } catch (e) {}
+  render();
+}
+function renderAll(panel = true) { VIEW = computeView(); drawMap(); renderToolbar(); renderTimeline(); renderLegend(); if (panel) renderPanel(); }
+const render = () => renderAll(true);
+
+$('m-arch').onclick = () => setMode('architecture');
+$('m-proj').onclick = () => setMode('project');
+document.addEventListener('click', e => {
+  const t = e.target.closest('button, [data-tab]');
+  if (!t || t.closest('#map') || t.id === 'z-find') return;
+  if (t.closest('#finder') && t.dataset.ask) { runAsk(t.dataset.ask); return; }
+  if (t.closest('#finder')) closeFinder(false);
+  const d = t.dataset;
+  if (d.edit && state.sel) {
+    state.editing = { type: d.edit, id: state.sel.id }; renderPanel();
+    const f = $('pane').querySelector('[data-f]'); if (f) { f.focus(); if (f.select) f.select(); }
+    return;
+  }
+  if (d.editDone) { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); state.editing = null; renderPanel(); return; }
+  if (d.propAdd) {
+    const box = $('props-ed'), i = box.querySelectorAll('.prow').length + Date.now() % 1000;
+    box.insertAdjacentHTML('beforeend', propRow(i, '', ''));
+    box.querySelector(`[data-pk="${i}"]`).focus();
+    return;
+  }
+  if (d.propDel !== undefined) { t.closest('.prow').remove(); commitProps(); renderPanel(); return; }
+  if (d.sheet) { if (state.sheet === d.sheet && t.closest('.tools')) closeSheet(); else openSheet(d.sheet); return; }
+  if (t.closest('#sheet')) return;
+  if (d.zoom) { zoomInto(d.zoom); return; }
+  if (d.fit) { fit(true); return; }
+  if (d.tab) { state.tab = d.tab; render(); }
+  else if (d.overlay) { state.mode = 'architecture'; state.overlay = d.overlay; state.sel = null; state.tab = 'inspect'; render(); }
+  else if (d.mode) setMode(d.mode);
+  else if (d.step !== undefined) { if (state.mode !== 'project') state.mode = 'project'; goStep(+d.step); }
+  else if (d.gotoStep) {
+    const s = stepById(d.gotoStep), p = s && projectOf(s);
+    if (p) { state.mode = 'project'; if (state.project !== p.id) { state.project = p.id; recompute(); } goStep(p.steps.indexOf(s) + 1); }
+  }
+  else if (d.project) { state.mode = 'project'; if (state.project !== d.project) { state.project = d.project; state.step = null; recompute(); } state.sel = null; render(); }
+  else if (d.adr) selectAdr(d.adr);
+  else if (d.area) select({ type: 'area', id: d.area });
+  else if (d.node) {
+    if (!VIEW.nodes.has(d.node) && state.mode === 'architecture') state.overlay = 'target';
+    select({ type: 'node', id: d.node });
+    const p = parentOf(d.node);
+    if (p) zoomInto(p); else centerOn(d.node);
+  }
+  else if (d.edge) { if (!VIEW.edges.has(d.edge) && state.mode === 'architecture') state.overlay = 'target'; select({ type: 'edge', id: d.edge }); }
+});
+// Ctrl/⌘+F opens the floating search; pressed again inside it, it falls through to the browser's own find.
+document.addEventListener('keydown', e => {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey || e.key.toLowerCase() !== 'f') return;
+  if (document.activeElement && document.activeElement.id === 'q') return;
+  if (state.sheet || !docId) return;   // inside the sheet or on the start screen, Ctrl+F is the browser's find
+  e.preventDefault();
+  openFinder();
+}, true);
+document.addEventListener('keydown', e => {
+  if (state.sheet) { if (e.key === 'Escape') { e.preventDefault(); closeSheet(); } return; }
+  if (/INPUT|TEXTAREA/.test(document.activeElement && document.activeElement.tagName)) return;
+  if (!docId) return;
+  if (e.key === 'Escape' && state.sel) { state.sel = null; render(); }
+  if (e.key === '?' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); openFinder('? '); return; }
+  if (state.mode === 'project' && e.key === 'ArrowRight') goStep(state.step + 1);
+  if (state.mode === 'project' && e.key === 'ArrowLeft') goStep(state.step - 1);
+});
+
+/* ---------- start-screen actions ---------- */
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-open-map],[data-del-map],[data-del-yes],[data-del-no],[data-start]');
+  if (!t) return;
+  const d = t.dataset;
+  if (d.openMap) { const doc = loadDoc(d.openMap); if (!doc || !openMap(d.openMap, doc)) { state.startMsg = state.startMsg || '<div class="issue"><span class="lv lv-error">ERROR</span><span>That map\'s data is missing from this browser.</span></div>'; renderStart(); } }
+  else if (d.delMap) { state.confirmDel = d.delMap; renderStart(); }
+  else if (d.delNo) { state.confirmDel = null; renderStart(); }
+  else if (d.delYes) {
+    try { localStorage.removeItem(docKey(d.delYes)); } catch (err) {}
+    histories.delete(d.delYes);
+    writeIndex(readIndex().filter(x => x.id !== d.delYes));
+    state.confirmDel = null; renderStart();
+  }
+  else if (d.start === 'example') createMap(SAMPLE_MODEL, SAMPLE_LAYOUT);
+});
+
+/* ---------- undo / redo: one history for moves, inspector edits and Apply ----------
+   Each entry is a snapshot of model + layout taken just before a change; a new change clears redo.
+   Histories live only in this page's memory, one per map, so switching maps keeps them. Never saved. */
+const histories = new Map();
+let history = { undo: [], redo: [] };
+function useHistory(id) { if (!histories.has(id)) histories.set(id, { undo: [], redo: [] }); history = histories.get(id); renderHistoryButtons(); }
+function snap(label) { return { model: JSON.stringify(model), layout: JSON.stringify(layout), label }; }
+function edLabel(ed) {
+  if (!ed) return 'item';
+  if (ed.type === 'area') return (areaById(ed.id) || {}).name || ed.id;
+  if (ed.type === 'node') return nname(ed.id);
+  return ed.id;
+}
+function record(before) {
+  history.undo.push(before);
+  if (history.undo.length > 100) history.undo.shift();
+  history.redo.length = 0;
+  renderHistoryButtons();
+}
+function restore(s) {
+  model = JSON.parse(s.model); layout = JSON.parse(s.layout);
+  recompute();
+  if (state.editing && !findDef(state.editing.type, state.editing.id)) state.editing = null;
+  persist(); render();
+}
+function undo() {
+  const s = history.undo.pop(); if (!s) return;
+  history.redo.push(snap(s.label)); restore(s);
+  flashStatus('undid: ' + s.label); renderHistoryButtons();
+}
+function redo() {
+  const s = history.redo.pop(); if (!s) return;
+  history.undo.push(snap(s.label)); restore(s);
+  flashStatus('redid: ' + s.label); renderHistoryButtons();
+}
+const UNDO_KEY = IS_MAC ? '⌘Z' : 'Ctrl+Z', REDO_KEY = IS_MAC ? '⇧⌘Z' : 'Ctrl+Y';
+function renderHistoryButtons() {
+  const u = history.undo[history.undo.length - 1], r = history.redo[history.redo.length - 1];
+  $('z-undo').disabled = !u; $('z-redo').disabled = !r;
+  $('z-undo').title = u ? `Undo ${u.label} (${UNDO_KEY})` : 'Nothing to undo';
+  $('z-redo').title = r ? `Redo ${r.label} (${REDO_KEY})` : 'Nothing to redo';
+}
+$('z-undo').onclick = undo;
+$('z-redo').onclick = redo;
+// Inside a text field, Ctrl+Z stays the field's own text undo.
+document.addEventListener('keydown', e => {
+  if (!docId || state.sheet || !(e.ctrlKey || e.metaKey) || e.altKey) return;
+  const tag = document.activeElement && document.activeElement.tagName;
+  if (/INPUT|TEXTAREA|SELECT/.test(tag)) return;
+  const k = e.key.toLowerCase();
+  if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+  else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); redo(); }
+}, true);
+
+/* ---------- boot: always open empty, on the list of maps ---------- */
+recompute();
+renderSheet();
+$('copy-guide').onclick = () => copyText(guideMarkdown(), $('copy-guide-status'), $('guide-fallback'));
+showStart();
+window.addEventListener('resize', onViewChange);
+})();
+</script>
+</body>
+</html>

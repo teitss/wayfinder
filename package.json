@@ -1,0 +1,17 @@
+{
+  "name": "wayfinder",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Architecture maps, projects and decisions from one text model that agents write and people navigate.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"tests/**/*.test.mjs\""
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}
